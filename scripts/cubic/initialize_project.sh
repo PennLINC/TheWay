@@ -3,8 +3,13 @@
 # This script initializes a project directory on CUBIC
 # so that The Way can be followed.
 
-# USAGE
+# SUPER IMPORTANT: This script assumes there will be one
+# project directory per project user. If there are multiple
+# projects in a project user's directory, this won't work
+
+# USAGE:
 # bash initialize_project.sh /full/path/to/project/root
+
 set -e -u -x
 
 PROJECTROOT=$1
@@ -45,6 +50,13 @@ do
         mkdir -p ${DIR_TO_CREATE}
     fi
 done
+
+# Turn off cbica python on login
+chmod +w ${HOME}/.bashrc
+echo "# Configure python for this user" >> ${HOME}/.bashrc
+echo "module unload python/anaconda/3" >> ${HOME}/.bashrc
+echo "unset PYTHONPATH" >> ${HOME}/.bashrc
+chmod -w ${HOME}/.bashrc
 
 # Download and install conda
 cd ${PROJECTROOT}

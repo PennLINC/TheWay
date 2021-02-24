@@ -6,7 +6,7 @@
 #$ -l h_vmem=25G
 #$ -l s_vmem=23.5G
 # Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate bond
+source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
@@ -24,10 +24,10 @@ echo detected subject id is $subid
 # this is all running under /tmp inside a compute job, /tmp is a performant
 # local filesystem
 #cd $SBIA_TMPDIR
-WORKDIR=$CBICA_TMPDIR/${subid}_${JOB_ID} 
+WORKDIR=$CBICA_TMPDIR/${subid}_${JOB_ID}
 
 mkdir -p ${WORKDIR}
-echo Using local working directory ${WORKDIR} 
+echo Using local working directory ${WORKDIR}
 cd $WORKDIR
 #DSLOCKFILE=$SBIA_TMPDIR/.git/datalad_lock
 # get the output dataset, which includes the inputs as well
@@ -38,7 +38,7 @@ cd $WORKDIR
 #flock --verbose $DSLOCKFILE \
 flock $DSLOCKFILE \
 datalad clone ${PROJECTROOT}
-# all following actions are performed in the context of the superdataset  
+# all following actions are performed in the context of the superdataset
 LOCAL_SUPERDS=${WORKDIR}/$(basename $PROJECTROOT)
 echo Using local superds ${LOCAL_SUPERDS}
 cd ${LOCAL_SUPERDS}
@@ -109,5 +109,5 @@ flock $DSLOCKFILE datalad push -d freesurfer --to origin
 #datalad push -d freesurfer --to origin
 # job handler should clean up workspace
 #run: bash datalad-fmriprep.sh absolutepath/to/bidsdataset (/cbica/projects/RBC/CCNP/bidsdatasets/sub-x)
-#second argument: /cbica/projects/RBC/CCNP) 
-# ls -d of the bidsdatasets directory and loop over that 
+#second argument: /cbica/projects/RBC/CCNP)
+# ls -d of the bidsdatasets directory and loop over that
