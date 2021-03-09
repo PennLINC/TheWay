@@ -8,6 +8,7 @@
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
+
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
 # Set up where the remote (NFS) repository is. We create an empty
@@ -16,6 +17,7 @@ set -e -u -x
 # Ref: https://github.com/datalad-handbook/book/issues/640
 PROJECTROOT=/cbica/projects/RBC/testing/PNC_Acq
 DSLOCKFILE=${PROJECTROOT}/.git/datalad_lock
+
 # we pass in "bidsdatasets/sub-...", extract subject id from it
 subjectbids=$1
 echo subjectbids=$subjectbids
@@ -29,7 +31,6 @@ WORKDIR=$CBICA_TMPDIR/${subid}_${JOB_ID}
 mkdir -p ${WORKDIR}
 echo Using local working directory ${WORKDIR}
 cd $WORKDIR
-#DSLOCKFILE=$SBIA_TMPDIR/.git/datalad_lock
 # get the output dataset, which includes the inputs as well
 # flock makes sure that this does not interfere with another job
 # finishing at the same time, and pushing its results back
@@ -98,16 +99,9 @@ datalad containers-run \
   --participant-label "$subid" \
   --force-bbr \
   --cifti-output 91k -v -v
+
 # selectively push outputs only
 # ignore root dataset, despite recorded changes, needs coordinated
 # merge at receiving end
-#flock --verbose $DSLOCKFILE datalad push -d fmriprep --to origin
-#flock --verbose $DSLOCKFILE datalad push -d freesurfer --to origin
-flock $DSLOCKFILE datalad push -d fmriprep --to origin
-flock $DSLOCKFILE datalad push -d freesurfer --to origin
-#datalad push -d fmriprep --to origin
-#datalad push -d freesurfer --to origin
-# job handler should clean up workspace
-#run: bash datalad-fmriprep.sh absolutepath/to/bidsdataset (/cbica/projects/RBC/CCNP/bidsdatasets/sub-x)
-#second argument: /cbica/projects/RBC/CCNP)
-# ls -d of the bidsdatasets directory and loop over that
+flock $DSLOCKFILE datalad push -d fmriprep --to push_fmriprep
+flock $DSLOCKFILE datalad push -d freesurfer --to push_freesurfer
