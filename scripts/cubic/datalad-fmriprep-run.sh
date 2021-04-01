@@ -15,8 +15,12 @@ set -e -u -x
 # text file $DSLOCKFILE in the .git directory there so two jobs
 # don't try to simultaneously write to the central repository
 # Ref: https://github.com/datalad-handbook/book/issues/640
-PROJECTROOT=/cbica/projects/RBC/testing/PNC_Acq
+PROJECTROOT=/cbica/projects/RBC/testing/colornest
+PUSHROOT=/cbica/projects/RBC/testing/colornest_push
 DSLOCKFILE=${PROJECTROOT}/.git/datalad_lock
+
+dssource=${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)
+
 
 # we pass in "bidsdatasets/sub-...", extract subject id from it
 subjectbids=$1
@@ -53,16 +57,16 @@ cd ${LOCAL_SUPERDS}
 datalad get -n -r -R1 .
 datalad get -n -r -R1 bidsdatasets
 datalad get code/license.txt
-# let git-annex know that we do not want to remember any of these clones
-# (we could have used an --ephemeral clone, but that might deposite data
-# of failed jobs at the origin location, if the job runs on a shared
-# filesystem -- let's stay self-contained)
-git submodule foreach --recursive git annex dead here
+
+git remote add
 # checkout new branches in both subdatasets
 # this enables us to store the results of this job, and push them back
 # without interference from other jobs
-git -C fmriprep checkout -b "$subid-$JOB_ID"
-git -C freesurfer checkout -b "$subid-$JOB_ID"
+git checkout -b "$subid-$JOB_ID"
+
+# Explicitly add the RIA Push sibling
+git -C fmriprep remote add fmriprep_push ria+file://${PROJECTPUSH}/fmriprep
+
 # create workdir for fmriprep inside to simplify singularity call
 # PWD will be available in the container
 mkdir -p .git/tmp/wdir
@@ -99,6 +103,12 @@ datalad containers-run \
   --participant-label "$subid" \
   --force-bbr \
   --cifti-output 91k -v -v
+
+
+# Send file content first -- does not need a lock, no interaction with Git
+datalad push --to fmriprep_push-storage
+# and the output branch
+flock --verbose $DSLOCKFILE git push fmriprep_push
 
 # selectively push outputs only
 # ignore root dataset, despite recorded changes, needs coordinated
