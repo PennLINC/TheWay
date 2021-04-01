@@ -14,7 +14,7 @@ DATALAD_VERSION=$(datalad --version)
 if [ $? -gt 0 ]; then
     echo "No datalad available in your conda environment."
     echo "Try pip install datalad"
-    exit 1
+    # exit 1
 fi
 
 echo USING DATALAD VERSION ${DATALAD_VERSION}
@@ -27,18 +27,18 @@ PROJECTROOT=${PWD}/fmriprep
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
-    #exit 1
+    # exit 1
 fi
 
 if [[ ! -w $(dirname ${PROJECTROOT}) ]]
 then
     echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
-    #exit 1
+    # exit 1
 fi
 
 
 ## Check the BIDS input
-BIDSINPUT=/cbica/projects/RBC/testing/way2/exemplars
+BIDSINPUT=/cbica/projects/RBC/testing/way2/exemplars_ds
 if [[ -z ${BIDSINPUT} ]]
 then
     echo "Required argument is an identifier of the BIDS source"
@@ -50,9 +50,8 @@ BIDS_INPUT_METHOD=clone
 if [[ -d "${BIDSINPUT}" ]]
 then
     # Check if it's datalad
-    set +e
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S dataset -d ${BIDSINPUT})
-    #set -e
+    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
     [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
@@ -87,27 +86,28 @@ then
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
-    echo "Copying input data into "
-    mkdir inputs
-    datalad create -d . inputs/data
-    cp -rv ${BIDSINPUT}/* inputs/data
+    echo "WARNING: copying input data into repository"
+    mkdir -p inputs/data
+    cp -r ${BIDSINPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
-SUBJECTS=$(ls -d inputs/data/* | grep sub- | cut -d "/" -f 3 )
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
-    exit 1
+    # exit 1
 fi
 
 
 ## Add the containers as a subdataset
-datalad clone -d . ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_project/containers#~pennlinc-containers
+cd ${PROJECTROOT}
+datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
 # download the image so we don't ddos pmacs
-datalad get pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image
-.datalad/environments/fmriprep-20-2-1
-
+cd pennlinc-containers
+datalad get .
+cd ${PROJECTROOT}/analysis
+datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -128,7 +128,8 @@ pushgitremote="$2"
 subid="$3"
 
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+# cd ${CBICA_TMPDIR}
+cd /cbica/comp_space/RBC/way2
 
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
@@ -171,13 +172,13 @@ datalad get -n "inputs/data/${subid}"
 # Do the run!
 
 datalad run \
-    -m "copy ${subid}" \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image
-.datalad/environments/fmriprep-20-2-1 \
+    -i inputs/data/*json \
+    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
     -o ${subid}_fmriprep-20-2-1.tar.gz \
     -o ${subid}_freesurfer-20-2-1.tar.gz \
+    -m "fmriprep:20.2.1 ${subid}" \
     "./code/fmriprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -198,13 +199,14 @@ set -e -u -x
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers.datalad/environments/fmriprep-20-2-1/image
-.datalad/environments/fmriprep-20-2-1/image \
+    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
     inputs/data \
     prep \
     participant \
     -w ${PWD}/.git/wkdir \
     --n_cpus 1 \
+    --stop-on-first-crash \
+    --fs-license-file code/license.txt \
     --skip-bids-validation \
     --participant-label "$subid" \
     --force-bbr \
@@ -219,28 +221,28 @@ EOT
 chmod +x code/fmriprep_zip.sh
 cp ${FREESURFER_HOME}/license.txt code/license.txt
 
+mkdir logs
+echo .SGE_datalad_lock >> .gitignore
+echo logs >> .gitignore
+
 datalad save -m "Participant compute job implementation"
 
-mkdir logs
-echo logs >> .gitignore
-
-mkdir logs
-echo logs >> .gitignore
 
 
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
 
-echo .SGE_datalad_lock >> .gitignore
+
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
-eo_args="-e ${PWD}/logs -o ${PWD}/logs"
+
 echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
-for subject in sub-01 sub-02 sub-03 sub-04; do
-  echo "qsub -cwd ${env_flags} ${eo_args} \
-  ${PWD}/code/participant_job \
+eo_args="-e ${PWD}/logs -o ${PWD}/logs"
+for subject in ${SUBJECTS}; do
+  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
 datalad save -m "SGE submission setup" code/ .gitignore
@@ -252,7 +254,11 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-datalad uninstall -r --nocheck inputs/data
+if [ "${BIDS_INPUT_METHOD}" = "clone" ]
+then
+    datalad uninstall -r --nocheck inputs/data
+fi
+
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
