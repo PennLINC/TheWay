@@ -176,6 +176,7 @@ datalad run \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    --explicit \
     -o ${subid}_fmriprep-20-2-1.tar.gz \
     -o ${subid}_freesurfer-20-2-1.tar.gz \
     -m "fmriprep:20.2.1 ${subid}" \
