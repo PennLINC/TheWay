@@ -177,8 +177,8 @@ datalad run \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
     --explicit \
-    -o ${subid}_fmriprep-20-2-1.tar.gz \
-    -o ${subid}_freesurfer-20-2-1.tar.gz \
+    -o ${subid}_fmriprep-20.2.1.zip \
+    -o ${subid}_freesurfer-20.2.1.zip \
     -m "fmriprep:20.2.1 ${subid}" \
     "./code/fmriprep_zip.sh ${subid}"
 
@@ -213,8 +213,9 @@ singularity run --cleanenv -B ${PWD} \
     --force-bbr \
     --cifti-output 91k -v -v
 
-tar cvfz -C prep ${subid}_fmriprep-20-2-1.tar.gz fmriprep
-tar cvfz -C prep ${subid}_freesurfer-20-2-1.tar.gz freesurfer
+cd prep
+7z a ../${subid}_fmriprep-20.2.1.zip fmriprep
+7z a ../${subid}_freesurfer-20.2.1.zip freesurfer
 rm -rf prep .git/tmp/wkdir
 
 EOT
@@ -228,11 +229,58 @@ echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
-
-
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
+cat > code/merge_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+
+echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
+    >> code/merge_outputs.sh
+
+cat >> code/merge_outputs.sh << "EOT"
+
+datalad clone ${outputsource} merge_ds
+cd merge_ds
+NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
+echo "Found $NBRANCHES branches to merge"
+
+gitref=$(git show-ref master | cut -d ' ' -f1 | head -n 1)
+
+# query all branches for the most recent commit and check if it is identical.
+# Write all branch identifiers for jobs without outputs into a file.
+for i in $(git branch -a | grep job- | sort); do [ x"$(git show-ref $i \
+  | cut -d ' ' -f1)" = x"${gitref}" ] && \
+  echo $i; done | tee code/noresults.txt | wc -l
+
+
+for i in $(git branch -a | grep job- | sort); \
+  do [ x"$(git show-ref $i  \
+     | cut -d ' ' -f1)" != x"${gitref}" ] && \
+     echo $i; \
+done | tee code/has_results.txt
+
+mkdir -p code/merge_batches
+num_branches=$(wc -l < code/has_results.txt)
+CHUNKSIZE=5000
+num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
+[[ $num_chunks == 0 ]] && num_chunks=1
+
+for chunknum in {1..$num_chunks}
+do
+    startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
+    endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
+    batch_file=code/merge_branches_$(printf %04d ${chunknum}).txt
+    [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
+    branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
+    echo ${branches} > ${batch_file}
+    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+
+done
+
+EOT
 
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
