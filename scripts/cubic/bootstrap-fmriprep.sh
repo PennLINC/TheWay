@@ -239,6 +239,7 @@ EOT
 
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
 
@@ -268,7 +269,7 @@ CHUNKSIZE=5000
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
 [[ $num_chunks == 0 ]] && num_chunks=1
 
-for chunknum in {1..$num_chunks}
+for chunknum in $(seq 1 $num_chunks)
 do
     startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
     endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
@@ -279,6 +280,27 @@ do
     git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 
 done
+
+# Push the merge back
+git push
+
+# Get the file availability info
+git annex fsck --fast -f output-storage
+
+# This should not print anything
+MISSING=$(git annex find --not --in output-storage)
+
+if [[ ! -z "$MISSING"]]
+then
+    echo Unable to find data for $MISSING
+    exit 1
+fi
+
+# stop tracking this branch
+git annex dead here
+
+datalad push --data nothing
+echo SUCCESS
 
 EOT
 
