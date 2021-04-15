@@ -38,7 +38,7 @@ fi
 
 
 ## Check the BIDS input
-BIDSINPUT=/cbica/projects/RBC/testing/way2/exemplars_ds
+BIDSINPUT=$1
 if [[ -z ${BIDSINPUT} ]]
 then
     echo "Required argument is an identifier of the BIDS source"
