@@ -269,7 +269,9 @@ mkdir -p code/merge_batches
 num_branches=$(wc -l < code/has_results.txt)
 CHUNKSIZE=5000
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-[[ $num_chunks == 0 ]] && num_chunks=1
+if [[ $num_chunks == 0 ]]; then
+    num_chunks=1
+fi
 
 for chunknum in $(seq 1 $num_chunks)
 do
@@ -292,7 +294,7 @@ git annex fsck --fast -f output-storage
 # This should not print anything
 MISSING=$(git annex find --not --in output-storage)
 
-if [[ ! -z "$MISSING"]]
+if [[ ! -z "$MISSING" ]]
 then
     echo Unable to find data for $MISSING
     exit 1
