@@ -211,6 +211,7 @@ singularity run --cleanenv -B ${PWD} \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \
     --skip-bids-validation \
+    --output-spaces --output-spaces MNI152NLin6Asym:res-2 \
     --participant-label "$subid" \
     --force-bbr \
     --cifti-output 91k -v -v
