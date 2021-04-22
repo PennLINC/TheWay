@@ -182,7 +182,7 @@ datalad run \
     -o ${subid}_fmriprep-20.2.1.zip \
     -o ${subid}_freesurfer-20.2.1.zip \
     -m "fmriprep:20.2.1 ${subid}" \
-    "./code/fmriprep_zip.sh ${subid}"
+    "bash ./code/fmriprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -269,11 +269,12 @@ done | tee code/has_results.txt
 mkdir -p code/merge_batches
 num_branches=$(wc -l < code/has_results.txt)
 CHUNKSIZE=5000
+set +e
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
 if [[ $num_chunks == 0 ]]; then
     num_chunks=1
 fi
-
+set -e
 for chunknum in $(seq 1 $num_chunks)
 do
     startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
