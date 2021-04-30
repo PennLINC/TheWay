@@ -31,11 +31,15 @@ then
     echo "export CONDA_PREFIX=${HOME}/miniconda3"
     echo ". ${HOME}/miniconda3/etc/profile.d/conda.sh" >> ${HOME}/.bashrc
     chmod -w ${HOME}/.bashrc
+    set +u
     source ${HOME}/.bashrc
     # Fix some permissions errors
     chown -R `whoami` ${PROJECTROOT}/miniconda3/bin
+    set -u
 fi
 
+# Note: if your user does not have (base) in front of it when you log back into
+# CUBIC, you may need to run these next lines manually
 # Activate the base conda environment
 conda activate
 # Install CuBIDS and datalad
