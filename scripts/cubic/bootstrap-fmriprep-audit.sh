@@ -3,11 +3,6 @@
 
 ## Ensure the environment is ready to bootstrap the analysis workspace
 # Check that we have conda installed
-#conda activate
-#if [ $? -gt 0 ]; then
-#    echo "Error initializing conda. Exiting"
-#    exit $?
-#fi
 
 DATALAD_VERSION=$(datalad --version)
 
@@ -23,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/fmriprep
+PROJECTROOT=${PWD}/xcp
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -35,26 +30,38 @@ then
     echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
     # exit 1
 fi
-
-
-## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
+FMRIPREP_INPUT=$1
+if [[ -z ${FMRIPREP_INPUT} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "Required argument is an identifier of the datalad dataset with fmriprep/freesurfer outputs"
     # exit 1
 fi
 
 # Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
+FMRIPREP_INPUT_METHOD=clone
+if [[ -d "${FMRIPREP_INPUT}" ]]
 then
     # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
+    FMRIPREP_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${FMRIPREP_INPUT} 2> /dev/null || true)
+    [ "${FMRIPREP_DATALAD_ID}" = 'N/A' ] && FMRIPREP_INPUT_METHOD=copy
 fi
 
+# Check that there are some fmriprep zip files present in the input
+# If you only need freesurfer, comment this out
+FMRIPREP_ZIPS=$(cd ${FMRIPREP_INPUT} && ls *fmriprep*.zip)
+if [[ -z "${FMRIPREP_ZIPS}" ]]; then
+   echo No fmriprep zip files found in ${FMRIPREP_INPUT}
+   exit 1
+fi
+
+# Check that freesurfer data exists. If you only need fmriprep zips, comment
+# this out
+# FREESURFER_ZIPS=$(cd ${FMRIPREP_INPUT} && ls *freesurfer*.zip)
+# if [[ -z "${FREESURFER_ZIPS}" ]]; then
+#    echo No freesurfer zip files found in ${FMRIPREP_INPUT}
+#    exit 1
+# fi
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -79,20 +86,20 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
+if [[ "${FMRIPREP_INPUT_METHOD}" == "clone" ]]
 then
     echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
+    datalad clone -d . ${FMRIPREP_INPUT} inputs/data
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
     echo "WARNING: copying input data into repository"
     mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
+    cp -r ${FMRIPREP_INPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
+SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -102,16 +109,21 @@ fi
 
 ## Add the containers as a subdataset
 cd ${PROJECTROOT}
-datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
+
+# Clone the containers dataset. If specified on the command, use that path
+CONTAINERDS=$2
+if [[ ! -z "${CONTAINERDS}" ]]; then
+    datalad clone ${CONTAINERDS} pennlinc-containers
+else
+    echo "No containers dataset specified, attempting to clone from pmacs"
+    datalad clone \
+        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
+        pennlinc-containers
+fi
+
 # download the image so we don't ddos pmacs
 cd pennlinc-containers
 datalad get -r .
-# get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
-
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 
@@ -119,9 +131,8 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
-#$ -l tmpfree=200G
+#$ -l h_vmem=5G
+#$ -l s_vmem=3.5G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -136,8 +147,6 @@ subid="$3"
 
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
-# OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
@@ -171,24 +180,17 @@ git checkout -b "${BRANCH}"
 # re-run we want to be able to do fine-grained recomputing of individual
 # outputs. The recorded calls will have specific paths that will enable
 # recomputation outside the scope of the original setup
-datalad get -n "inputs/data/${subid}"
-
-# Reomve all subjects we're not working on
-(cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
+datalad get -n "inputs/data/${subid}*fmriprep*.zip"
 
 # ------------------------------------------------------------------------------
 # Do the run!
-
 datalad run \
-    -i code/fmriprep_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    -i code/fmriprep_zip_audit.sh \
+    -i inputs/data/${subid}*fmriprep*.zip \
     --explicit \
-    -o ${subid}_fmriprep-20.2.1.zip \
-    -o ${subid}_freesurfer-20.2.1.zip \
-    -m "fmriprep:20.2.1 ${subid}" \
-    "bash ./code/fmriprep_zip.sh ${subid}"
+    -o ${subid}_fmriprep-audit.csv \
+    -m "fmriprep-audit ${subid}" \
+    "./code/fmriprep_zip_audit.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -201,43 +203,23 @@ EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/fmriprep_zip.sh << "EOT"
+cat > code/fmriprep_zip_audit.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
+# zips will be in inputs/data
 subid="$1"
-mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
-    inputs/data \
-    prep \
-    participant \
-    -w ${PWD}/.git/wkdir \
-    --n_cpus 1 \
-    --stop-on-first-crash \
-    --fs-license-file code/license.txt \
-    --skip-bids-validation \
-    --output-spaces MNI152NLin6Asym:res-2 \
-    --participant-label "$subid" \
-    --force-bbr \
-    --cifti-output 91k -v -v
-
-cd prep
-7z a ../${subid}_fmriprep-20.2.1.zip fmriprep
-7z a ../${subid}_freesurfer-20.2.1.zip freesurfer
-rm -rf prep .git/tmp/wkdir
+python code/audit_fmriprep.py ${subid}
 
 EOT
 
-chmod +x code/fmriprep_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+chmod +x code/fmriprep_zip_audit.sh
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
-
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
@@ -251,7 +233,6 @@ echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S da
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
-
 datalad clone ${outputsource} merge_ds
 cd merge_ds
 NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
@@ -275,12 +256,8 @@ done | tee code/has_results.txt
 mkdir -p code/merge_batches
 num_branches=$(wc -l < code/has_results.txt)
 CHUNKSIZE=5000
-set +e
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-if [[ $num_chunks == 0 ]]; then
-    num_chunks=1
-fi
-set -e
+[[ $num_chunks == 0 ]] && num_chunks=1
 for chunknum in $(seq 1 $num_chunks)
 do
     startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
@@ -302,7 +279,7 @@ git annex fsck --fast -f output-storage
 # This should not print anything
 MISSING=$(git annex find --not --in output-storage)
 
-if [[ ! -z "$MISSING" ]]
+if [[ ! -z "$MISSING"]]
 then
     echo Unable to find data for $MISSING
     exit 1
@@ -310,7 +287,6 @@ fi
 
 # stop tracking this branch
 git annex dead here
-
 datalad push --data nothing
 echo SUCCESS
 
@@ -337,11 +313,10 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
+if [ "${FMRIPREP_INPUT_METHOD}" = "clone" ]
 then
     datalad uninstall -r --nocheck inputs/data
 fi
-
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
