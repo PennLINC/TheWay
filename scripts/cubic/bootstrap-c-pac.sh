@@ -105,7 +105,7 @@ cd ${PROJECTROOT}
 datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
 # download the image so we don't ddos pmacs
 cd pennlinc-containers
-datalad get .
+datalad get -r .
 # get rid of the references to pmacs
 set +e
 datalad siblings remove -s pmacs-ria-storage
