@@ -23,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/fmriprep
+PROJECTROOT=${PWD}/xcp
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -37,9 +37,10 @@ then
 fi
 
 
-## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
+##  fmriprep input
+#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep/merge_ds
+FMRIPREPINPUT=$1
+if [[ -z ${FMRIPREPINPUT} ]]
 then
     echo "Required argument is an identifier of the BIDS source"
     # exit 1
@@ -47,11 +48,11 @@ fi
 
 # Is it a directory on the filesystem?
 BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
+if [[ -d "${FMRIPREPINPUT}" ]]
 then
     # Check if it's datalad
     BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
+                      dataset -d ${FMRIPREPINPUT} 2> /dev/null || true)
     [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
@@ -82,17 +83,17 @@ datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
 then
     echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
+    datalad clone -d . ${FMRIPREPINPUT} inputs/data
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
     echo "WARNING: copying input data into repository"
     mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
+    cp -r ${FMRIPREPINPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
+SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -100,17 +101,28 @@ then
 fi
 
 
-## Add the containers as a subdataset
-cd ${PROJECTROOT}
-datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
-# download the image so we don't ddos pmacs
-cd pennlinc-containers
-datalad get -r .
-# get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
+# Clone the containers dataset. If specified on the command, use that path
+
+# building containers in /cbica/projects/RBC/dropbox
+# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
+
+# then copy to /cbica/projects/RBC/xcp-abcd-container
+# datalad create -D "xcp-abcd container" .
+
+# do that actual copy
+#datalad containers-add --url ~/dropbox/xcp-abcd-latest.sif xcp-abcd-latest
+
+#can delete rm xcp-abcd-latest.sif  from /dropbox
+#CONTAINERDS=~/xcp-abcd-container
+CONTAINERDS=$2
+if [[ ! -z "${CONTAINERDS}" ]]; then
+    datalad clone ${CONTAINERDS} pennlinc-containers
+else
+    echo "No containers dataset specified, attempting to clone from pmacs"
+    datalad clone \
+        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
+        pennlinc-containers
+fi
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -119,9 +131,9 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
-#$ -l tmpfree=200G
+#$ -l h_vmem=10G
+#$ -l s_vmem=8G
+#$ -l tmpfree=100G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -171,24 +183,21 @@ git checkout -b "${BRANCH}"
 # re-run we want to be able to do fine-grained recomputing of individual
 # outputs. The recorded calls will have specific paths that will enable
 # recomputation outside the scope of the original setup
-datalad get -n "inputs/data/${subid}"
 
-# Reomve all subjects we're not working on
-(cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
-
+# ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # Do the run!
 
+datalad get -r pennlinc-containers
+
 datalad run \
-    -i code/fmriprep_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    -i code/xcp_zip.sh \
+    -i inputs/data/${subid}*fmriprep*.zip \
+    -i inputs/data/${subid}*freesurfer*.zip \
     --explicit \
-    -o ${subid}_fmriprep-20.2.1.zip \
-    -o ${subid}_freesurfer-20.2.1.zip \
-    -m "fmriprep:20.2.1 ${subid}" \
-    "bash ./code/fmriprep_zip.sh ${subid}"
+    -o ${subid}_xcp-latest.zip \
+    -m "xcp-abcd-run ${subid}" \
+    "bash ./code/xcp_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -201,35 +210,28 @@ EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/fmriprep_zip.sh << "EOT"
+
+cat > code/xcp_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
 subid="$1"
+wd=${PWD}
+
+cd inputs/data
+7z x ${subid}_fmriprep-20.2.1.zip
+7z x ${subid}_freesurfer-20.2.1.zip
+cd $wd
+
 mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
-    inputs/data \
-    prep \
-    participant \
-    -w ${PWD}/.git/wkdir \
-    --n_cpus 1 \
-    --stop-on-first-crash \
-    --fs-license-file code/license.txt \
-    --skip-bids-validation \
-    --output-spaces MNI152NLin6Asym:res-2 \
-    --participant-label "$subid" \
-    --force-bbr \
-    --cifti-output 91k -v -v
-
-cd prep
-7z a ../${subid}_fmriprep-20.2.1.zip fmriprep
-7z a ../${subid}_freesurfer-20.2.1.zip freesurfer
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 0.3 -w ${PWD}/.git/wkdir
+cd xcp
+7z a ../${subid}_fmriprep-20.2.1.zip xcp
 rm -rf prep .git/tmp/wkdir
-
 EOT
 
-chmod +x code/fmriprep_zip.sh
+chmod +x code/xcp_zip.sh
 cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
@@ -324,7 +326,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
@@ -350,3 +352,6 @@ datalad push --to output
 
 # if we get here, we are happy
 echo SUCCESS
+
+#run last sge call to test
+#$(tail -n 1 code/qsub_calls.sh)
