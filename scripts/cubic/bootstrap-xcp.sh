@@ -225,9 +225,9 @@ cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image inputs/data/fmriprep xcp participant \
---despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 0.3 -w ${PWD}/.git/wkdir
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 0.3 -w ${PWD}/.git/tmp/wkdir
 cd xcp
-7z a ../${subid}_fmriprep-20.2.1.zip xcp
+7z a ../${subid}_xcp-latest.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 EOT
 
