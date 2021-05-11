@@ -100,6 +100,7 @@ then
     # exit 1
 fi
 
+cd ${PROJECTROOT}
 
 # Clone the containers dataset. If specified on the command, use that path
 
