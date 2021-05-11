@@ -199,7 +199,7 @@ datalad run \
     -i inputs/data/${subid}*fmriprep*.zip \
     -i inputs/data/${subid}*freesurfer*.zip \
     --explicit \
-    -o ${subid}_xcp-latest.zip \
+    -o ${subid}_xcp-0-0-1.zip \
     -m "xcp-abcd-run ${subid}" \
     "bash ./code/xcp_zip.sh ${subid}"
 
