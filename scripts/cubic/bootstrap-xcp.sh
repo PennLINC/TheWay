@@ -136,8 +136,8 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=20G
-#$ -l s_vmem=16G
+#$ -l h_vmem=32G
+#$ -l s_vmem=32G
 #$ -l tmpfree=100G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
