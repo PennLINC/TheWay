@@ -362,4 +362,5 @@ echo SUCCESS
 #$(tail -n 1 code/qsub_calls.sh)
 
 
-# ~/testing/hrc_exemplars/fmriprep/merge_ds ~/xcp-abcd-container
+# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data' ~/xcp-abcd-container/
+# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data' ~/xcp-abcd-container/
