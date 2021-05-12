@@ -30,30 +30,32 @@ then
     echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
     # exit 1
 fi
-FMRIPREP_INPUT=$1
-if [[ -z ${FMRIPREP_INPUT} ]]
+
+FMRIPREP_BOOTSTRAP_DIR=$1
+FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${FMRIPREP_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is an identifier of the datalad dataset with fmriprep/freesurfer outputs"
+    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
 
 # Is it a directory on the filesystem?
 FMRIPREP_INPUT_METHOD=clone
-if [[ -d "${FMRIPREP_INPUT}" ]]
+if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
 then
-    # Check if it's datalad
-    FMRIPREP_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${FMRIPREP_INPUT} 2> /dev/null || true)
-    [ "${FMRIPREP_DATALAD_ID}" = 'N/A' ] && FMRIPREP_INPUT_METHOD=copy
+    echo "There must be alias in the output ria store that points to the"
+    echo "fmriprep output dataset"
+    # exit 1
 fi
 
 # Check that there are some fmriprep zip files present in the input
 # If you only need freesurfer, comment this out
-FMRIPREP_ZIPS=$(cd ${FMRIPREP_INPUT} && ls *fmriprep*.zip)
-if [[ -z "${FMRIPREP_ZIPS}" ]]; then
-   echo No fmriprep zip files found in ${FMRIPREP_INPUT}
-   exit 1
-fi
+# FMRIPREP_ZIPS=$(cd ${FMRIPREP_INPUT} && ls *fmriprep*.zip)
+# if [[ -z "${FMRIPREP_ZIPS}" ]]; then
+#    echo No fmriprep zip files found in ${FMRIPREP_INPUT}
+#    exit 1
+# fi
 
 # Check that freesurfer data exists. If you only need fmriprep zips, comment
 # this out
@@ -66,6 +68,14 @@ fi
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
+
+
+# Create a dataset with the logs in it
+mkdir fmriprep_logs
+cd fmriprep_logs
+datalad create -D "Logs from the fmriprep runs"
+cp ${FMRIPREP_BOOTSTRAP_DIR}/analysis/logs/* .
+datalad save -m "add logs"
 
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
@@ -85,47 +95,18 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-# register the input dataset
-if [[ "${FMRIPREP_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${FMRIPREP_INPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${FMRIPREP_INPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+datalad install -d . -r --source ${FMRIPREP_INPUT} inputs/data
+datalad install -d . -r --source ${PROJECTROOT}/fmriprep_logs inputs/fmriprep_logs
 
-SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
+
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
 fi
-
-
-## Add the containers as a subdataset
-cd ${PROJECTROOT}
-
-# Clone the containers dataset. If specified on the command, use that path
-CONTAINERDS=$2
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-else
-    echo "No containers dataset specified, attempting to clone from pmacs"
-    datalad clone \
-        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
-        pennlinc-containers
-fi
-
-# download the image so we don't ddos pmacs
-cd pennlinc-containers
-datalad get -r .
-cd ${PROJECTROOT}/analysis
-datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -152,45 +133,22 @@ cd ${CBICA_TMPDIR}
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
-
-# get the analysis dataset, which includes the inputs as well
-# importantly, we do not clone from the lcoation that we want to push the
-# results to, in order to avoid too many jobs blocking access to
-# the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
-
-# all following actions are performed in the context of the superdataset
 cd ds
-
-# in order to avoid accumulation temporary git-annex availability information
-# and to avoid a syncronization bottleneck by having to consolidate the
-# git-annex branch across jobs, we will only push the main tracking branch
-# back to the output store (plus the actual file content). Final availability
-# information can be establish via an eventual `git-annex fsck -f joc-storage`.
-# this remote is never fetched, it accumulates a larger number of branches
-# and we want to avoid progressive slowdown. Instead we only ever push
-# a unique branch per each job (subject AND process specific name)
 git remote add outputstore "$pushgitremote"
-
-# all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
-
-# we pull down the input subject manually in order to discover relevant
-# files. We do this outside the recorded call, because on a potential
-# re-run we want to be able to do fine-grained recomputing of individual
-# outputs. The recorded calls will have specific paths that will enable
-# recomputation outside the scope of the original setup
-datalad get -n "inputs/data/${subid}*fmriprep*.zip"
 
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad run \
-    -i code/fmriprep_zip_audit.sh \
+    -i code/fmriprep_zip_audit.py \
     -i inputs/data/${subid}*fmriprep*.zip \
+    -i inputs/data/inputs/data/${subid} \
+    -i inputs/fmriprep_logs/*${subid}* \
     --explicit \
     -o ${subid}_fmriprep-audit.csv \
     -m "fmriprep-audit ${subid}" \
-    "./code/fmriprep_zip_audit.sh ${subid}"
+    "python code/fmriprep_zip_audit.py ${subid} ${PWD} "
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -203,23 +161,15 @@ EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/fmriprep_zip_audit.sh << "EOT"
-#!/bin/bash
-set -e -u -x
-
-# zips will be in inputs/data
-subid="$1"
-python code/audit_fmriprep.py ${subid}
-
-EOT
-
-chmod +x code/fmriprep_zip_audit.sh
+>code/fmriprep_zip_audit.py
+chmod +x code/fmriprep_zip_audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
-datalad save -m "Participant compute job implementation"
+datalad save -m "Add logs from fmriprep runs"
+
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
@@ -313,10 +263,7 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${FMRIPREP_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
-fi
+datalad uninstall -r --nocheck inputs/data
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
