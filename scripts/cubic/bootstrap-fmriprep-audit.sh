@@ -140,6 +140,10 @@ git checkout -b "${BRANCH}"
 
 # ------------------------------------------------------------------------------
 # Do the run!
+BIDS_DIR=${PWD}/inputs/data/inputs/data
+ZIPS_DIR=${PWD}/inputs/data
+ERROR_DIR=${PWD}/inputs/fmriprep_logs
+
 datalad run \
     -i code/fmriprep_zip_audit.py \
     -i inputs/data/${subid}*fmriprep*.zip \
@@ -148,7 +152,7 @@ datalad run \
     --explicit \
     -o ${subid}_fmriprep-audit.csv \
     -m "fmriprep-audit ${subid}" \
-    "python code/fmriprep_zip_audit.py ${subid} ${PWD} "
+    "python code/fmriprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${PWD}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -161,6 +165,7 @@ EOT
 
 chmod +x code/participant_job.sh
 
+# Sydney, please wget your audit script here!
 >code/fmriprep_zip_audit.py
 chmod +x code/fmriprep_zip_audit.py
 
