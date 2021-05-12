@@ -86,6 +86,7 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 
 # Create a source dataset with all analysis components as an analysis access
 # point.
+cd $PROJECTROOT
 datalad create -c yoda analysis
 cd analysis
 
