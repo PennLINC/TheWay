@@ -143,6 +143,9 @@ git checkout -b "${BRANCH}"
 BIDS_DIR=${PWD}/inputs/data/inputs/data
 ZIPS_DIR=${PWD}/inputs/data
 ERROR_DIR=${PWD}/inputs/fmriprep_logs
+CSV_DIR=csvs
+mkdir ${CSV_DIR} 
+output_file=${CSV_DIR}/${subid}_fmriprep_audit.csv
 
 datalad run \
     -i code/fmriprep_zip_audit.py \
@@ -150,9 +153,9 @@ datalad run \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}* \
     --explicit \
-    -o ${subid}_fmriprep-audit.csv \
+    -o ${output_file}/ \
     -m "fmriprep-audit ${subid}" \
-    "python code/fmriprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${PWD}"
+    "python code/fmriprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
