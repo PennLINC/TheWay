@@ -229,7 +229,7 @@ echo "'sbref': {'datatype': 'func', 'session': '$sesid', 'suffix': 'sbref'}," >>
 echo "'flair': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'FLAIR'}," >> ${filterfile}
 echo "'t2w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T2w'}," >> ${filterfile}
 echo "'t1w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T1w'}," >> ${filterfile}
-echo "'roi': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'roi'}," >> ${filterfile}
+echo "'roi': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'roi'}" >> ${filterfile}
 echo "}" >> ${filterfile}
 
 # remove ses and get valid json
@@ -385,6 +385,3 @@ datalad push --to output
 
 # if we get here, we are happy
 echo SUCCESS
-
-
-singularity run --cleanenv -B /cbica/comp_space/RBC/job-7212554-sub-20639-ses-1/ds pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image inputs/data prep participant -w /cbica/comp_space/RBC/job-7212554-sub-20639-ses-1/ds/.git/wkdir --n_cpus 1 --stop-on-first-crash --fs-license-file code/license.txt --skip-bids-validation --bids-filter-file ses-1_filter.json --output-spaces MNI152NLin6Asym:res-2 --participant-label sub-20639 --force-bbr --cifti-output 91k -v -v
