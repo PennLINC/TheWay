@@ -358,7 +358,7 @@ eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
   SESSIONS=$(ls  inputs/data/$subject | grep ses- | cut -d '/' -f 1)
   for session in ${SESSIONS}; do
-    echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+    echo "qsub -cwd ${env_flags} -N fp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
     ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
   done
