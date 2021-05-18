@@ -221,7 +221,7 @@ subid="$1"
 sesid="$2"
 
 # Create a filter file that only allows this session
-filterfile=${sesid}_filter.json
+filterfile=${PWD}/${sesid}_filter.json
 echo "{" > ${filterfile}
 echo "'fmap': {'datatype': 'fmap'}," >> ${filterfile}
 echo "'bold': {'datatype': 'func', 'session': '$sesid', 'suffix': 'bold'}," >> ${filterfile}
@@ -233,8 +233,8 @@ echo "'roi': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'roi'}" >> ${fi
 echo "}" >> ${filterfile}
 
 # remove ses and get valid json
-sed -i "s/'/\"/g" ses-1_filter.json
-sed -i "s/ses-//g" ses-1_filter.json
+sed -i "s/'/\"/g" ${filterfile}
+sed -i "s/ses-//g" ${filterfile}
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
