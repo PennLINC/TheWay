@@ -170,7 +170,7 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/new_fmriprep_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fmriprep_zip_audit.py
 mv fmriprep_zip_audit.py code/
 chmod +x code/fmriprep_zip_audit.py
 
