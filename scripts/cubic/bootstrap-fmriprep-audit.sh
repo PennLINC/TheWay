@@ -231,6 +231,8 @@ do
 
 done
 
+set -e -x
+
 # Push the merge back
 git push
 
