@@ -154,7 +154,7 @@ datalad run \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}* \
     --explicit \
-    -o ${output_file}/ \
+    -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
     "python code/fmriprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
