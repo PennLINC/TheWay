@@ -216,9 +216,12 @@ done | tee code/has_results.txt
 mkdir -p code/merge_batches
 num_branches=$(wc -l < code/has_results.txt)
 CHUNKSIZE=5000
+
 set +e
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
 [[ $num_chunks == 0 ]] && num_chunks=1
+set -e -x
+
 for chunknum in $(seq 1 $num_chunks)
 do
     startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
@@ -230,8 +233,6 @@ do
     git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 
 done
-
-set -e -x
 
 # Push the merge back
 git push
