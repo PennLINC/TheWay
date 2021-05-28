@@ -148,10 +148,15 @@ CSV_DIR=csvs
 mkdir ${CSV_DIR}
 output_file=${CSV_DIR}/${subid}_fmriprep_audit.csv
 
-INPUT_ZIP=$(ls inputs/data/${subid}_${sesid}*fmriprep*.zip || true)
+datalad get -n inputs/data
+
+INPUT_ZIP=$(ls inputs/data/${subid}_fmriprep*.zip | cut -d '@' -f 1 || true)
 if [ ! -z "${INPUT_ZIP}" ]; then
     INPUT_ZIP="-i ${INPUT_ZIP}"
 fi
+
+echo DATALAD RUN INPUT
+echo ${INPUT_ZIP}
 
 datalad run \
     -i code/fmriprep_zip_audit.py \
@@ -162,7 +167,7 @@ datalad run \
     -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
     "python code/fmriprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
-
+    
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
