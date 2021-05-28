@@ -266,9 +266,11 @@ pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
   SESSIONS=$(ls  inputs/data/inputs/data/$subject | grep ses- | cut -d '/' -f 1)
-  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
+  for session in ${SESSIONS}; do
+    echo "qsub -cwd ${env_flags} -N audit${subject}_${session} ${eo_args} \
+    ${PWD}/code/participant_job.sh \
+    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
+  done
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
