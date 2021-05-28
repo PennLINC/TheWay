@@ -147,11 +147,16 @@ ZIPS_DIR=${PWD}/inputs/data
 ERROR_DIR=${PWD}/inputs/fmriprep_logs
 CSV_DIR=csvs
 mkdir ${CSV_DIR}
-output_file=${CSV_DIR}/${subid}_fmriprep_audit.csv
+output_file=${CSV_DIR}/${subid}_${sesid}_fmriprep_audit.csv
+
+INPUT_ZIP=$(ls inputs/data/${subid}_${sesid}*fmriprep*.zip || true)
+if [ ! -z "${INPUT_ZIP}" ]; then
+    INPUT_ZIP="-i ${INPUT_ZIP}"
+fi
 
 datalad run \
     -i code/fmriprep_zip_audit.py \
-    -i inputs/data/${subid}_${sesid}*fmriprep*.zip \
+    ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}*${sesid}* \
     --explicit \
