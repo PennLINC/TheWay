@@ -107,7 +107,7 @@ cd ${PROJECTROOT}
 #MUST BE AS NOT RBC USER
 
 # building containers in /cbica/projects/RBC/dropbox
-# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:0.0.1
+# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:latest
 
 # then copy to /cbica/projects/RBC/xcp-abcd-container
 # datalad create -D "xcp-abcd container".
