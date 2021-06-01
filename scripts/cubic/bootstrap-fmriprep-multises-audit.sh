@@ -155,14 +155,14 @@ if [ ! -z "${INPUT_ZIP}" ]; then
 fi
 
 datalad run \
-    -i code/fmriprep_zip_audit.py \
+    -i code/fmriprep_multisites_zip_audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}*${sesid}* \
     --explicit \
     -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
-    "python code/fmriprep_zip_audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/fmriprep_multisites_zip_audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -176,7 +176,7 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fmriprep_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fmriprep_multisites_zip_audit.py
 mv fmriprep_zip_audit.py code/
 chmod +x code/fmriprep_zip_audit.py
 
