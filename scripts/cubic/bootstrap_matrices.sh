@@ -31,7 +31,7 @@ then
     # exit 1
 fi
 
-XCP_BOOTSTRAP_DIR=$1
+XCP_BOOTSTRAP_DIR=${PWD}/xcp
 XCP_INPUT=ria+file://${XCP_BOOTSTRAP_DIR}"/output_ria#~data"
 if [[ -z ${XCP_BOOTSTRAP_DIR} ]]
 then
@@ -42,24 +42,17 @@ fi
 
 # Is it a directory on the filesystem?
 XCP_INPUT_METHOD=clone
-if [[ ! -d "${XCP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
+if [[ -d "${XCP_INPUT}" ]]
 then
-    echo "There must be alias in the output ria store that points to the"
-    echo "XCP output dataset"
-    # exit 1
+    # Check if it's datalad
+    XCP_INPUT_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${XCP_INPUT} 2> /dev/null || true)
+    [ "${XCP_INPUT_ID}" = 'N/A' ] && XCP_INPUT_METHOD=copy
 fi
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
-
-
-# Create a dataset with the logs in it
-mkdir xcp_logs
-cd xcp_logs
-datalad create -D "Logs from the xcp runs"
-cp ${XCP_BOOTSTRAP_DIR}/analysis/logs/* .
-datalad save -m "add logs"
 
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
@@ -70,7 +63,6 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 
 # Create a source dataset with all analysis components as an analysis access
 # point.
-cd $PROJECTROOT
 datalad create -c yoda analysis
 cd analysis
 
@@ -80,18 +72,28 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-datalad install -d . -r --source ${XCP_INPUT} inputs/data
-datalad install -d . -r --source ${PROJECTROOT}/xcp_logs inputs/xcp_logs
+# register the input dataset
+if [[ "${XCP_INPUT_METHOD}" == "clone" ]]
+then
+    echo "Cloning input dataset into analysis dataset"
+    datalad clone -d . ${XCP_INPUT} inputs/data
+    # amend the previous commit with a nicer commit message
+    git commit --amend -m 'Register input data dataset as a subdataset'
+else
+    echo "WARNING: copying input data into repository"
+    mkdir -p inputs/data
+    cp -r ${XCP_INPUT}/* inputs/data
+    datalad save -r -m "added input data"
+fi
 
-# amend the previous commit with a nicer commit message
-git commit --amend -m 'Register input data dataset as a subdataset'
-
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
+SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
 fi
+
+cd ${PROJECTROOT}
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
