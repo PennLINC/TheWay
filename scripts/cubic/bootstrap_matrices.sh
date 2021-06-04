@@ -42,11 +42,11 @@ fi
 
 # Is it a directory on the filesystem?
 XCP_INPUT_METHOD=clone
-if [[ -d "${XCP_INPUT}" ]]
+if [[ -d "${XCP_BOOTSTRAP_DIR}" ]]
 then
     # Check if it's datalad
     XCP_INPUT_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${XCP_INPUT} 2> /dev/null || true)
+                      dataset -d ${XCP_BOOTSTRAP_DIR} 2> /dev/null || true)
     [ "${XCP_INPUT_ID}" = 'N/A' ] && XCP_INPUT_METHOD=copy
 fi
 
