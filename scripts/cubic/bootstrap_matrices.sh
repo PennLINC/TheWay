@@ -40,16 +40,6 @@ then
     # exit 1
 fi
 
-# Is it a directory on the filesystem?
-XCP_INPUT_METHOD=clone
-if [[ -d "${XCP_BOOTSTRAP_DIR}" ]]
-then
-    # Check if it's datalad
-    XCP_INPUT_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${XCP_BOOTSTRAP_DIR} 2> /dev/null || true)
-    [ "${XCP_INPUT_ID}" = 'N/A' ] && XCP_INPUT_METHOD=copy
-fi
-
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
@@ -73,18 +63,12 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${XCP_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${XCP_INPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${XCP_INPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${XCP_INPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
+
 
 SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
@@ -99,8 +83,9 @@ cd ${PROJECTROOT}
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=5G
-#$ -l s_vmem=3.5G
+#$ -l h_vmem=12G
+#$ -l s_vmem=12G
+#$ -l tmpfree=10G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -112,36 +97,45 @@ pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
+# OR Run it on a shared network drive
+# cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
+# get the analysis dataset, which includes the inputs as well
+# importantly, we do not clone from the lcoation that we want to push the
+# results to, in order to avoid too many jobs blocking access to
+# the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
+# all following actions are performed in the context of the superdataset
 cd ds
+# in order to avoid accumulation temporary git-annex availability information
+# and to avoid a syncronization bottleneck by having to consolidate the
+# git-annex branch across jobs, we will only push the main tracking branch
+# back to the output store (plus the actual file content). Final availability
+# information can be establish via an eventual `git-annex fsck -f joc-storage`.
+# this remote is never fetched, it accumulates a larger number of branches
+# and we want to avoid progressive slowdown. Instead we only ever push
+# a unique branch per each job (subject AND process specific name)
 git remote add outputstore "$pushgitremote"
+# all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
+# we pull down the input subject manually in order to discover relevant
+# files. We do this outside the recorded call, because on a potential
+# re-run we want to be able to do fine-grained recomputing of individual
+# outputs. The recorded calls will have specific paths that will enable
+# recomputation outside the scope of the original setup
+# ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # Do the run!
-
-ZIPS_DIR=${PWD}/inputs/data
-
-output_file=${CSV_DIR}/${subid}_xcp_audit.csv
-datalad get -n inputs/data
-INPUT_ZIP=$(ls inputs/data/${subid}_xcp*.zip | cut -d '@' -f 1 || true)
-if [ ! -z "${INPUT_ZIP}" ]; then
-    INPUT_ZIP="-i ${INPUT_ZIP}"
-fi
-echo DATALAD RUN INPUT
-echo ${INPUT_ZIP}
 datalad run \
     -i code/make_matrices.py \
-    ${INPUT_ZIP} \
-    -i inputs/data/inputs/data/${subid} \
-    -i inputs/xcp_logs/*${subid}* \
+    -i inputs/data/${subid}*xcp*.zip \
     --explicit \
-    -o ${output_file} \
-    -m "xcp-audit ${subid}" \
-    "python code/make_matrices.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    -o ${subid}_matrices.zip \
+    -m "make_matrix ${subid}" \
+    "python /code/make_matrices.py ${subid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -152,16 +146,32 @@ EOT
 
 chmod +x code/participant_job.sh
 
-# Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/XCP_zip_audit.py
-mv XCP_zip_audit.py code/
-chmod +x code/XCP_zip_audit.py
+
+cat > code/xcp_zip.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+subid="$1"
+wd=${PWD}
+cd inputs/data
+7z x ${subid}_fmriprep-20.2.1.zip
+7z x ${subid}_freesurfer-20.2.1.zip
+cd $wd
+mkdir -p ${PWD}/.git/tmp/wdir
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
+cd xcp
+7z a ../${subid}_xcp-0-0-1.zip xcp_abcd
+rm -rf prep .git/tmp/wkdir
+EOT
+
+chmod +x code/xcp_zip.sh
+cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
-datalad save -m "Add logs from XCP runs"
+datalad save -m "Participant compute job implementation"
 
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
@@ -196,8 +206,10 @@ num_branches=$(wc -l < code/has_results.txt)
 CHUNKSIZE=5000
 set +e
 num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-[[ $num_chunks == 0 ]] && num_chunks=1
-set -e -x
+if [[ $num_chunks == 0 ]]; then
+    num_chunks=1
+fi
+set -e
 for chunknum in $(seq 1 $num_chunks)
 do
     startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
@@ -206,7 +218,7 @@ do
     [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
     branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
     echo ${branches} > ${batch_file}
-    git merge -m "XCP results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 done
 # Push the merge back
 git push
@@ -214,7 +226,7 @@ git push
 git annex fsck --fast -f output-storage
 # This should not print anything
 MISSING=$(git annex find --not --in output-storage)
-if [[ ! -z "$MISSING"]]
+if [[ ! -z "$MISSING" ]]
 then
     echo Unable to find data for $MISSING
     exit 1
@@ -233,7 +245,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
@@ -246,7 +258,11 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-datalad uninstall -r --nocheck inputs/data
+if [ "${BIDS_INPUT_METHOD}" = "clone" ]
+then
+    datalad uninstall -r --nocheck inputs/data
+fi
+
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
@@ -255,3 +271,6 @@ datalad push --to output
 
 # if we get here, we are happy
 echo SUCCESS
+
+#run last sge call to test
+#$(tail -n 1 code/qsub_calls.sh)
