@@ -364,3 +364,4 @@ echo SUCCESS
 
 # bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data' ~/xcp-abcd-container/
 # bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data' ~/xcp-abcd-container/
+# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/testing/ccnp_fmriprep_2009c/fmriprep/output_ria#~data' ~/xcp-abcd-container/
