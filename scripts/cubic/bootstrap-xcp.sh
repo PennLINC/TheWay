@@ -322,11 +322,15 @@ datalad push --data nothing
 
 mkdir -p ${PROJECTROOT}/output_ria/alias
 path1=$(ls ${PROJECTROOT}/output_ria/ | awk '{print $1}')
-path2=$(ls ${PROJECTROOT}/output_ria/${path1}| awk '{print $1}')
-ln -s ${PROJECTROOT}/output_ria/${path1}/${path2} ${PROJECTROOT}/output_ria/alias
+
+cd ${PROJECTROOT}/output_ria/???
+subdir=$(ls | awk '{print $1}')
+cd ${subdir}
+path=$(pwd)
+ln -s ${path} ${PROJECTROOT}/output_ria/alias
+cd ${PROJECTROOT}
 
 echo SUCCESS
-
 
 EOT
 
