@@ -136,7 +136,7 @@ datalad run \
     --explicit \
     -o ${subid}_matrices.zip \
     -m "make_matrix ${subid}" \
-    "python /code/make_matrices.py ${subid}"
+    "python code/make_matrices.py ${subid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
