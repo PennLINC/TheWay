@@ -78,7 +78,7 @@ then
     # exit 1
 fi
 
-cd ${PROJECTROOT}
+cd ${PROJECTROOT}/analysis
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -97,9 +97,9 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+# cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -141,32 +141,38 @@ datalad run \
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
+git annex dead here
 echo SUCCESS
 # job handler should clean up workspace
+
 EOT
 
 chmod +x code/participant_job.sh
 
+cat > code/make_matrices.py  << "EOT"
+#!/usr/bin/env python
 
-cat > code/xcp_zip.sh << "EOT"
-#!/bin/bash
-set -e -u -x
-subid="$1"
-wd=${PWD}
-cd inputs/data
-7z x ${subid}_fmriprep-20.2.1.zip
-7z x ${subid}_freesurfer-20.2.1.zip
-cd $wd
-mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
---despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
-cd xcp
-7z a ../${subid}_xcp-0-0-1.zip xcp_abcd
-rm -rf prep .git/tmp/wkdir
+import os
+import glob
+import sys
+
+subid =  sys.argv[1]
+
+subzip = 'inputs/data/{0}_xcp-0-0-1.zip'.format(subid)
+os.system('7z x {0}'.format(subzip))
+os.mkdir('matrices')
+
+matrices = glob.glob('xcp_abcd/{0}/*ses*/func/*fsLR_atlas*.pconn.nii*'.format(subid))
+for m in matrices:
+	cmd = 'mv {0} matrices/'.format(m)
+	os.system(cmd)
+
+cmd = 'zip {0}_matrices.zip matrices/'.format(subid)
+os.system(cmd)
+
 EOT
 
-chmod +x code/xcp_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+chmod +x code/make_matrices.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
@@ -219,7 +225,7 @@ do
     [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
     branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
     echo ${branches} > ${batch_file}
-    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+    git merge -m "matrix results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 done
 # Push the merge back
 git push

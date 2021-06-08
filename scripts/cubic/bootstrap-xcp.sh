@@ -208,7 +208,7 @@ datalad run \
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
-
+git annex dead here
 echo SUCCESS
 # job handler should clean up workspace
 EOT
