@@ -115,7 +115,7 @@ cd ${PROJECTROOT}
 # do that actual copy
 #datalad containers-add --url ~/dropbox/xcp-abcd-0.0.1.sif xcp-abcd-0-0-1
 
-#can delete 
+#can delete
 #rm /cbica/projects/RBC/dropbox/dropbox/xcp-abcd-0.0.1.sif
 
 #CONTAINERDS=~/xcp-abcd-container
@@ -296,7 +296,7 @@ do
     [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
     branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
     echo ${branches} > ${batch_file}
-    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+    git merge -m "xcp results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 
 done
 
@@ -319,7 +319,14 @@ fi
 git annex dead here
 
 datalad push --data nothing
+
+mkdir -p ${PROJECTROOT}/output_ria/alias
+path1=$(ls ${PROJECTROOT}/output_ria/ | awk '{print $1}')
+path2=$(ls ${PROJECTROOT}/output_ria/${path1}| awk '{print $1}')
+ln -s ${PROJECTROOT}/output_ria/${path1}/${path2} ${PROJECTROOT}/output_ria/alias
+
 echo SUCCESS
+
 
 EOT
 

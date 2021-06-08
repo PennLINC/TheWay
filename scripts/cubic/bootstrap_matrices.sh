@@ -62,6 +62,7 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
+
 # register the input dataset
 
 echo "Cloning input dataset into analysis dataset"
