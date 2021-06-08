@@ -97,9 +97,9 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-# cd ${CBICA_TMPDIR}
+cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-cd /cbica/comp_space/$(basename $HOME)
+# cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -242,6 +242,7 @@ fi
 git annex dead here
 datalad push --data nothing
 echo SUCCESS
+
 EOT
 
 
@@ -265,10 +266,7 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
-fi
+datalad uninstall -r --nocheck inputs/data
 
 
 # make sure the fully configured output dataset is available from the designated
