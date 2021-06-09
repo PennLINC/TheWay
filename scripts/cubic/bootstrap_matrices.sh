@@ -167,7 +167,7 @@ for m in matrices:
 	cmd = 'mv {0} matrices/'.format(m)
 	os.system(cmd)
 
-qcs = glob.glob('xcp_abcd/{0}/*ses*/func/**fsLR_desc-qc_bold'.format(subid))
+qcs = glob.glob('xcp_abcd/{0}/*ses*/func/**fsLR_desc-qc_bold**'.format(subid))
 for qc in qcs:
 	cmd = 'mv {0} matrices/'.format(qc)
 	os.system(cmd)
