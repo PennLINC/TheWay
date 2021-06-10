@@ -6,12 +6,12 @@ mkdir $PROJECTROOT
 cd $PROJECTROOT
 
 # set up concat_ds and run concatenator on it
-datalad clone ria+file:///$DATA/matrices/output_ria#~data concat_ds
+datalad clone ria+file://$DATA/matrices/output_ria#~data concat_ds
 cd concat_ds/code
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/matrix_concatenator.py
-cd ~/testing/concat_ds
+cd $PROJECTROOT
 datalad save -m "added matrix concatenator script"
-datalad run -i 'csvs/*' -o '~/testing/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ~/testing/concat_ds/csvs ~/testing/concat_ds/group_report.csv"
+datalad run -i '*matrices.zip*' -o 'concat_ds/group_matrices.zip' --expand inputs --explicit "python code/concatenator.py"
 
 # push changes
 datalad save -m "generated concatenated matrices"

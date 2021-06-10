@@ -172,7 +172,7 @@ for qc in qcs:
 	cmd = 'mv {0} matrices/'.format(qc)
 	os.system(cmd)
 
-cmd = 'zip {0}_matrices.zip matrices/'.format(subid)
+cmd = 'zip -r {0}_matrices.zip matrices/'.format(subid)
 os.system(cmd)
 
 EOT
