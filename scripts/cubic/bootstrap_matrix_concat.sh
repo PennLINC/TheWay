@@ -19,7 +19,6 @@ datalad save -m "generated concatenated matrices"
 datalad push
 
 # remove concat_ds
-git annex dead here
 datalad uninstall concat_ds
 
 echo SUCCESS
