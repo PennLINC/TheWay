@@ -108,19 +108,8 @@ CONTAINERDS=$2
 if [[ ! -z "${CONTAINERDS}" ]]; then
     datalad clone ${CONTAINERDS} pennlinc-containers
 else
-    echo "No containers dataset specified, attempting to clone from pmacs"
-    datalad clone \
-        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
-        pennlinc-containers
-    cd pennlinc-containers
-    datalad get -r .
-    # get rid of the references to pmacs
-    set +e
-    datalad siblings remove -s pmacs-ria-storage
-    git annex dead pmacs-ria-storage
-    datalad siblings remove -s origin
-    git annex dead origin
-    set -e
+    echo ERROR: requires a container dataset
+    exit 1
 fi
 
 cd ${PROJECTROOT}/analysis
@@ -195,10 +184,10 @@ datalad run \
     -i code/qsiprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/qsiprep-0-13-0/image \
+    -i pennlinc-containers/.datalad/environments/qsiprep-0-13-1/image \
     --explicit \
-    -o ${subid}_qsiprep-0.13.0.zip \
-    -m "qsiprep:0.13.0 ${subid}" \
+    -o ${subid}_qsiprep-0.13.1.zip \
+    -m "qsiprep:0.13.1 ${subid}" \
     "bash ./code/qsiprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -220,7 +209,7 @@ subid="$1"
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-13-0/image \
+    pennlinc-containers/.datalad/environments/qsiprep-0-13-1/image \
     inputs/data \
     prep \
     participant \
@@ -234,7 +223,7 @@ singularity run --cleanenv -B ${PWD} \
     --output-resolution 3
 
 cd prep
-7z a ../${subid}_${sesid}_qsiprep-0.13.0.zip qsiprep
+7z a ../${subid}_${sesid}_qsiprep-0.13.1.zip qsiprep
 rm -rf prep .git/tmp/wkdir
 
 EOT
@@ -248,87 +237,22 @@ echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
-################################################################################
-# SGE SETUP START - remove or adjust to your needs
-################################################################################
 cat > code/merge_outputs.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 EOT
 
+# Add a script for merging outputs
+MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
-cat >> code/merge_outputs.sh << "EOT"
-
-datalad clone ${outputsource} merge_ds
-cd merge_ds
-NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
-echo "Found $NBRANCHES branches to merge"
-
-gitref=$(git show-ref master | cut -d ' ' -f1 | head -n 1)
-
-# query all branches for the most recent commit and check if it is identical.
-# Write all branch identifiers for jobs without outputs into a file.
-for i in $(git branch -a | grep job- | sort); do [ x"$(git show-ref $i \
-  | cut -d ' ' -f1)" = x"${gitref}" ] && \
-  echo $i; done | tee code/noresults.txt | wc -l
-
-
-for i in $(git branch -a | grep job- | sort); \
-  do [ x"$(git show-ref $i  \
-     | cut -d ' ' -f1)" != x"${gitref}" ] && \
-     echo $i; \
-done | tee code/has_results.txt
-
-mkdir -p code/merge_batches
-num_branches=$(wc -l < code/has_results.txt)
-CHUNKSIZE=5000
-set +e
-num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-if [[ $num_chunks == 0 ]]; then
-    num_chunks=1
-fi
-set -e
-for chunknum in $(seq 1 $num_chunks)
-do
-    startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
-    endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
-    batch_file=code/merge_branches_$(printf %04d ${chunknum}).txt
-    [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
-    branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
-    echo ${branches} > ${batch_file}
-    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
-
-done
-
-# Push the merge back
-git push
-
-# Get the file availability info
-git annex fsck --fast -f output-storage
-
-# This should not print anything
-MISSING=$(git annex find --not --in output-storage)
-
-if [[ ! -z "$MISSING" ]]
-then
-    echo Unable to find data for $MISSING
-    exit 1
-fi
-
-# stop tracking this branch
-git annex dead here
-
-datalad push --data nothing
-echo SUCCESS
-
-EOT
-
-
+################################################################################
+# SGE SETUP START - remove or adjust to your needs
+################################################################################
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
-
 echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
