@@ -150,14 +150,14 @@ fi
 echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 datalad run \
-    -i code/qsiprep_zip_audit.py \
+    -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/qsiprep_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
     -m "qsiprep-audit ${subid}" \
-    "python code/qsiprep_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}" qsiprep
     
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -171,8 +171,8 @@ chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/bootstrap_zip_audit.py
-mv qsiprep_zip_audit.py code/
-chmod +x code/qsiprep_zip_audit.py
+mv bootstrap_zip_audit.py code/
+chmod +x code/bootstrap_zip_audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
