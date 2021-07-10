@@ -223,7 +223,7 @@ singularity run --cleanenv -B ${PWD} \
     --output-resolution 3
 
 cd prep
-7z a ../${subid}_${sesid}_qsiprep-0.13.1.zip qsiprep
+7z a ../${subid}_qsiprep-0.13.1.zip qsiprep
 rm -rf prep .git/tmp/wkdir
 
 EOT
