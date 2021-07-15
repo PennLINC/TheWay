@@ -105,18 +105,18 @@ cd ${PROJECTROOT}
 # Clone the containers dataset. If specified on the command, use that path
 
 #MUST BE AS NOT RBC USER
-
-# building containers in /cbica/projects/RBC/dropbox
+# build the container in /cbica/projects/RBC/dropbox
 # singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:latest
 
+#AS RBC
 # then copy to /cbica/projects/RBC/xcp-abcd-container
 # datalad create -D "xcp-abcd container".
 
 # do that actual copy
-#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.1.sif xcp-abcd-0-0-1
+#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.1.sif xcp-abcd-0-0-1 --update
 
 #can delete
-#rm /cbica/projects/RBC/dropbox/dropbox/xcp-abcd-0.0.1.sif
+#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.1.sif
 
 #CONTAINERDS=~/xcp-abcd-container
 CONTAINERDS=$2
