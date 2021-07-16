@@ -220,7 +220,7 @@ singularity run --cleanenv -B ${PWD} \
     --skip-bids-validation \
     --participant-label "$subid" \
     --unringing-method mrdegibbs \
-    --output-resolution 3
+    --output-resolution 1.8
 
 cd prep
 7z a ../${subid}_qsiprep-0.13.1.zip qsiprep
