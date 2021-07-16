@@ -184,7 +184,7 @@ datalad run \
     -i code/qsiprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/qsiprep-0-13-1/image \
+    -i pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     --explicit \
     -o ${subid}_qsiprep-0.13.1.zip \
     -m "qsiprep:0.13.1 ${subid}" \
@@ -209,7 +209,7 @@ subid="$1"
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-13-1/image \
+    pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     inputs/data \
     prep \
     participant \
