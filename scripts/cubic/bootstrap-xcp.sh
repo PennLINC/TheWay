@@ -225,12 +225,13 @@ wd=${PWD}
 
 cd inputs/data
 7z x ${subid}_fmriprep-20.2.1.zip
-7z x ${subid}_freesurfer-20.2.1.zip
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
 cd xcp
 7z a ../${subid}_xcp-0-0-1.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
