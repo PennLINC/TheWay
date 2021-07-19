@@ -198,7 +198,6 @@ datalad get -r pennlinc-containers
 datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}*fmriprep*.zip \
-    -i inputs/data/${subid}*freesurfer*.zip \
     --explicit \
     -o ${subid}_xcp-0-0-1.zip \
     -m "xcp-abcd-run ${subid}" \
