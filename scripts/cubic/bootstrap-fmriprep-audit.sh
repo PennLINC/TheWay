@@ -159,14 +159,14 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/bootstrap_zip_prep_audit.py \
+    -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
-    "python code/bootstrap_zip_prep_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} fmriprep"
+    "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} fmriprep"
     
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
