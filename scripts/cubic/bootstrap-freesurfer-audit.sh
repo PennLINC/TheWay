@@ -170,7 +170,7 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/freesurfer_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fs_euler_checker.py
 mv freesurfer_zip_audit.py code/
 chmod +x code/freesurfer_zip_audit.py
 
