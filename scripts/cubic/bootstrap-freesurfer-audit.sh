@@ -157,7 +157,7 @@ datalad run \
     --explicit \
     -o ${output_file} \
     -m "freesurfer-audit ${subid}" \
-    "python code/fs_euler_checker.py ${subid} ${output_file}"
+    "python code/fs_euler_checker.py ${subid} ${ZIPS_DIR} ${output_file}"
     
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
