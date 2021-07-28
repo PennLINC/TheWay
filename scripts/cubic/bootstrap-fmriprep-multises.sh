@@ -195,11 +195,11 @@ datalad run \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
     --explicit \
-    -o ${subid}_fmriprep-20.2.1.zip \
-    -o ${subid}_freesurfer-20.2.1.zip \
-    -m "fmriprep:20.2.1 ${subid}" \
+    -o ${subid}_${sesid}_fmriprep-20.2.3.zip \
+    -o ${subid}_${sesid}_freesurfer-20.2.3.zip \
+    -m "fmriprep:20.2.3 ${subid} ${sesid}" \
     "bash ./code/fmriprep_zip.sh ${subid} ${sesid}"
 
 # file content first -- does not need a lock, no interaction with Git
