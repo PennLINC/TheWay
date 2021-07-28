@@ -193,7 +193,7 @@ datalad get -n "inputs/data/${subid}"
 
 datalad run \
     -i code/fmriprep_zip.sh \
-    -i inputs/data/${subid} \
+    -i inputs/data/${subid}/${sesid}\
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
     --explicit \
