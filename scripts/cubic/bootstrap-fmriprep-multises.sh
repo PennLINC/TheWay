@@ -238,7 +238,7 @@ sed -i "s/ses-//g" ${filterfile}
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
     inputs/data \
     prep \
     participant \
