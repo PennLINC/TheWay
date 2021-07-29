@@ -254,8 +254,8 @@ singularity run --cleanenv -B ${PWD} \
     --cifti-output 91k -v -v
 
 cd prep
-7z a ../${subid}_${sesid}_fmriprep-20.2.1.zip fmriprep
-7z a ../${subid}_${sesid}_freesurfer-20.2.1.zip freesurfer
+7z a ../${subid}_${sesid}_fmriprep-20.2.3.zip fmriprep
+7z a ../${subid}_${sesid}_freesurfer-20.2.3.zip freesurfer
 rm -rf prep .git/tmp/wkdir
 rm ${filterfile}
 
