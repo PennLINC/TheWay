@@ -154,6 +154,9 @@ if [ ! -z "${INPUT_ZIP}" ]; then
     INPUT_ZIP="-i ${INPUT_ZIP}"
 fi
 
+echo DATALAD RUN INPUT
+echo ${INPUT_ZIP}
+
 datalad run \
     -i code/fmriprep_multisites_zip_audit.py \
     ${INPUT_ZIP} \
@@ -161,7 +164,7 @@ datalad run \
     -i inputs/fmriprep_logs/*${subid}*${sesid}* \
     --explicit \
     -o ${output_file} \
-    -m "fmriprep-audit ${subid}" \
+    -m "fmriprep-audit ${subid} ${sesid}" \
     "python code/fmriprep_multisites_zip_audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
 # file content first -- does not need a lock, no interaction with Git
