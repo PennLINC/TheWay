@@ -33,6 +33,13 @@ then
     # exit 1
 fi
 
+if [[ ! -d "${QSIPREPINPUT}/output_ria/alias/data" ]]
+then
+    echo "There must be alias in the output ria store that points to the"
+    echo "QSIPrep output dataset"
+    # exit 1
+fi
+
 set -e -u
 
 ## Set up the directory that will contain the necessary directories
@@ -48,17 +55,6 @@ then
     echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
     # exit 1
 fi
-
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${QSIPREPINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${QSIPREPINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
-
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -82,15 +78,10 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-# register the input dataset
-BIDS_INPUT_METHOD=clone
-if [[ -d "${QSIPREPINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${QSIPREPINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ria+file://${QSIPREPINPUT}/output_ria#~data inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
