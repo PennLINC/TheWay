@@ -83,17 +83,13 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
+BIDS_INPUT_METHOD=clone
+if [[ -d "${QSIPREPINPUT}" ]]
 then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${QSIPREPINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${QSIPREPINPUT}/* inputs/data
-    datalad save -r -m "added input data"
+    # Check if it's datalad
+    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${QSIPREPINPUT} 2> /dev/null || true)
+    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
 SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
@@ -179,6 +175,7 @@ datalad get -r pennlinc-containers
 datalad run \
     -i code/qsirecon_zip.sh \
     -i inputs/data/${subid}*qsiprep*.zip \
+    -i code/license.txt \
     --explicit \
     -o ${subid}_qsirecon-0-14-2.zip \
     -m "qsirecon-0.14.2 ${subid}" \
@@ -196,7 +193,7 @@ EOT
 chmod +x code/participant_job.sh
 
 
-cat > code/xcp_zip.sh << "EOT"
+cat > code/qsirecon_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
@@ -209,17 +206,23 @@ cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run \
-    --cleanenv -B ${PWD} \
+    --cleanenv --env DIPY_HOME=/home/qsiprep/.dipy -B ${PWD} \
     pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     inputs/data/qsiprep qsirecon participant \
     --participant_label $subid \
+    --recon-input inputs/data/qsiprep \
+    --fs-license-file code/license.txt \
+    --nthreads ${NSLOTS} \
+    --stop-on-first-crash \
     --recon-only \
     --recon-spec amico_noddi \
+    --sloppy \
     -w ${PWD}/.git/tmp/wkdir
 
 cd qsirecon
 7z a ../${subid}_qsirecon-0-14-2.zip qsirecon
 rm -rf prep .git/tmp/wkdir
+
 EOT
 
 chmod +x code/qsirecon_zip.sh
@@ -290,8 +293,3 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
-
-
-# bash bootstrap-qsirecon.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data' ~/qsirecon-abcd-container/
-# bash bootstrap-qsirecon.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data' ~/qsirecon-abcd-container/
-# bash bootstrap-qsirecon.sh 'ria+file:///cbica/projects/RBC/testing/ccnp_fmriprep_2009c/fmriprep/output_ria#~data' ~/qsirecon-abcd-container/
