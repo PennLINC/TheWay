@@ -1,203 +1,246 @@
-#!~/anaconda3/bin/python
-import glob
-import os
-import sys
-import pandas as pd
-import nibabel as nb
-import numpy as np
-from shutil import copyfile
-import json
-import subprocess
-import h5py
-import time
-from sklearn.linear_model import LinearRegression
-from scipy.stats import pearsonr
+## NOTE ##
+# This workflow is derived from the Datalad Handbook
 
-subid = str(sys.argv[1])
-hcp_dir = 'inputs/data/HCP1200/'
-outdir = 'fmriprepdir/'
-os.makedirs(outdir,exist_ok=True)
+## Ensure the environment is ready to bootstrap the analysis workspace
+# Check that we have conda installed
+#conda activate
+#if [ $? -gt 0 ]; then
+#    echo "Error initializing conda. Exiting"
+#    exit $?
+#fi
 
-"""
-Data Narrative
+DATALAD_VERSION=$(datalad --version)
 
-All subjects from the S1200 HCP-YA were analyzed. For each Task ("REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL") and Encoding Direction ("LR","RL"), we analyzed the session if the following files were present:
-(1) rfMRI/tfMRI_{Task}_{Encoding_}_Atlas_MSMAll.dtseries.nii, (2) rfMRI/tfMRI_{Task}_{Encoding}.nii, (3) Movement_Regressors.txt, (4) Movement_AbsoluteRMS.txt, (5) SBRef_dc.nii.gz, and (6) rfMRI/tfMRI_{Task}_{Encoding_}_SBRef.nii.gz.
-For all tasks, the global signal timeseries was generated with: wb_command -cifti-stats rfMRI/tfMRI_{Task}_{Encoding_}_Atlas_MSMAll.dtseries.nii -reduce MEAN'. For REST1 and REST2, we used the HCP distributed CSF.txt and WM.txt cerebral spinal fluid
-and white matter time series. For all other tasks (i.e., all tfMRI), we generated those files in the exact manner the HCP did: fslmeants -i tfMRI_{Task}_{Encoding}.nii -o CSF.txt -m CSFReg.2.nii.gz; fslmeants -i tfMRI_{Task}_{Encoding}.nii -o WM.txt -m WMReg.2.nii.gz.
-To ensure this process was identical, we generated these time series for the rfMRI sessions and compared them to the HCP distributed timeseries, ensuring they are identical. These files were then formatted into fMRIprep outputs by renaming the files,
-creating the regression json, and creating dummy transforms. These inputs were then analyzed by xcp_abcd with the following command:
-singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-latest.sif /$SUBJECT/fmriprepdir/ ~/xcp_hcp/xcp_results/ participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-$SUBJECT -p 36P -f 100 --omp-nthreads 4 --nthreads 4
-All subjects ran successfully.
-"""
+if [ $? -gt 0 ]; then
+    echo "No datalad available in your conda environment."
+    echo "Try pip install datalad"
+    # exit 1
+fi
 
-os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json /{0}/fmriprepdir/dataset_description.json'.format(tmpdir))
-#put this directly in here
-tasklist = []
-for fdir in ["RL","LR"]:
-    for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        tdir = glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*'.format(hcp_dir,subid,orig_task,fdir))[0]
-        task = tdir.split('/')[-1]
-        tasklist.append(task)
-        task_dir = '/{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
-        os.chdir(task_dir)
-        wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
-        if os.path.exists(wbs_file):
-            command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> /{1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
-            os.system(command)
+echo USING DATALAD VERSION ${DATALAD_VERSION}
 
-	anatdir=outdir+'/sub-'+subid+'/anat/'
-	funcdir=outdir+'/sub-'+subid+'/func/'
-
-	os.makedirs(outdir+'/sub-'+subid+'/anat',exist_ok=True) # anat dir
-	os.makedirs(outdir+'/sub-'+subid+'/func',exist_ok=True) # func dir
-
-for j in tasklist:
-
-    bb = j.split('_')
-    taskname = bb[1]
-    acqname = bb[2]
-    datadir = hcp_dir +subid+'/MNINonLinear/Results/'+ j
-
-    if 'REST' not in j:
-        ResultsFolder='/{0}/{1}/MNINonLinear/Results/{2}/'.format(hcp_dir,subid,j)
-        ROIFolder="/{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
-
-        xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_WM.txt'.format(hcp_dir,subid,j,j)
-        cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/WMReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
-        os.system(cmd)
-
-        xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_CSF.txt'.format(hcp_dir,subid,j,j)
-        cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/CSFReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
-        os.system(cmd)
+set -e -u
 
 
-    ##create confound regressors
-    mvreg = pd.read_csv(datadir +'/Movement_Regressors.txt',header=None,delimiter=r"\s+")
-    mvreg = mvreg.iloc[:,0:6]
-    mvreg.columns=['trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
-    # convert rot to rad
-    mvreg['rot_x']=mvreg['rot_x']*np.pi/180
-    mvreg['rot_y']=mvreg['rot_y']*np.pi/180
-    mvreg['rot_z']=mvreg['rot_z']*np.pi/180
+## Set up the directory that will contain the necessary directories
+PROJECTROOT=${PWD}/xcp
+if [[ -d ${PROJECTROOT} ]]
+then
+    echo ${PROJECTROOT} already exists
+    # exit 1
+fi
+
+if [[ ! -w $(dirname ${PROJECTROOT}) ]]
+then
+    echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
+    # exit 1
+fi
 
 
-    csfreg = np.loadtxt(datadir +'/'+ j + '_CSF.txt')
-    wmreg = np.loadtxt(datadir +'/'+ j + '_WM.txt')
-    gsreg = np.loadtxt(datadir +'/'+ j + '_WBS.txt')
-    rsmd = np.loadtxt(datadir +'/Movement_AbsoluteRMS.txt')
+##  hcp input
+HCPINPUT=https://github.com/datalad-datasets/human-connectome-project-openaccess
+if [[ -z ${HCPINPUT} ]]
+then
+    echo "Required argument is an identifier of the BIDS source"
+    # exit 1
+fi
+
+## Start making things
+mkdir -p ${PROJECTROOT}
+cd ${PROJECTROOT}
+
+# Jobs are set up to not require a shared filesystem (except for the lockfile)
+# ------------------------------------------------------------------------------
+# RIA-URL to a different RIA store from which the dataset will be cloned from.
+# Both RIA stores will be created
+input_store="ria+file://${PROJECTROOT}/input_ria"
+output_store="ria+file://${PROJECTROOT}/output_ria"
+
+# Create a source dataset with all analysis components as an analysis access
+# point.
+datalad create -c yoda analysis
+cd analysis
+
+# create dedicated input and output locations. Results will be pushed into the
+# output sibling and the analysis will start with a clone from the input sibling.
+datalad create-sibling-ria -s output "${output_store}"
+pushremote=$(git remote get-url --push output)
+datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 
-    brainreg = pd.DataFrame({'global_signal':gsreg,'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd })
-
-    regressors  =  pd.concat([mvreg, brainreg], axis=1)
-    jsonreg =  pd.DataFrame({'LR': [1,2,3]}) # just a fake json
-    regressors.to_csv(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
-                        sep= '\t')
-    regressors.to_json(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.json')
-
-    regressors.to_csv('/cbica/home/bertolem/pines_gsr/'+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
-                        sep= '\t')
-
-    hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/{2}_SBRef.nii.gz'.format(hcp_dir,subid,j)
-    prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_boldref.nii.gz'
-    copyfile(hcp_mask,prep_mask)
-
-    hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/brainmask_fs.2.nii.gz'.format(hcp_dir,subid,j)
-    prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-brain_mask.nii.gz'
-    copyfile(hcp_mask,prep_mask)
-
-    # create/copy  cifti
-    niftip  = '{0}/{1}/MNINonLinear/Results/{2}/{2}.nii.gz'.format(hcp_dir,subid,j,j) # to get TR  and just sample
-    niftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz'
-    ciftip = datadir + '/'+ j +'_Atlas_MSMAll.dtseries.nii'
-    ciftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.nii'
-
-    os.system('cp {0} {1}'.format(ciftip,ciftib))
-    os.system('cp {0} {1}'.format(niftip,niftib))
-
-    tr = nb.load(niftip).header.get_zooms()[-1]   # repetition time
-
-    jsontis={
-        "RepetitionTime": np.float(tr),
-        "TaskName": taskname
-    }
-    json2={
-        "RepetitionTime": np.float(tr),
-        "grayordinates": "91k", "space": "HCP grayordinates",
-        "surface": "fsLR","surface_density": "32k",
-        "volume": "MNI152NLin6Asym"
-        }
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${HCPINPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 
-    with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.json', 'w') as outfile:
-        json.dump(jsontis, outfile)
+SUBJECTS=$(find inputs/data/HCP1200/ -maxdepth 1 | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
+if [ -z "${SUBJECTS}" ]
+then
+    echo "No subjects found in input data"
+    # exit 1
+fi
 
-    with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.json', 'w') as outfile:
-        json.dump(json2, outfile)
+cd ${PROJECTROOT}
 
-    
+# Clone the containers dataset. If specified on the command, use that path
 
-    # just fake anatomical profile for xcp, it wont be use
-    anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
-    mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
-    t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
-    cmd = 'cp {0} {1}'.format(anat1,mni2t1)
-    os.system(cmd)
-    cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
-    os.system(cmd)
+#MUST BE AS NOT RBC USER
+# build the container in /cbica/projects/RBC/dropbox
+# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:latest
+
+#AS RBC
+# then copy to /cbica/projects/RBC/xcp-abcd-container
+# datalad create -D "xcp-abcd container".
+# do that actual copy
+#datalad containers-add --url ~/dropbox/xcp-abcd-latest.sif xcp-abcd-latest --update
+
+#can delete
+#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.1.sif
+
+CONTAINERDS=~/xcp-abcd-container
+datalad clone ${CONTAINERDS} pennlinc-containers
+
+cd ${PROJECTROOT}/analysis
+datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
+
+## the actual compute job specification
+cat > code/participant_job.sh << "EOT"
+#!/bin/bash
+#$ -S /bin/bash
+#$ -l h_vmem=32G
+#$ -l s_vmem=32G
+#$ -l tmpfree=100G
+#$ -pe threaded 4
+# Set up the correct conda environment
+source ${CONDA_PREFIX}/bin/activate base
+echo I\'m in $PWD using `which python`
+# fail whenever something is fishy, use -x to get verbose logfiles
+set -e -u -x
+# Set up the remotes and get the subject id from the call
+dssource="$1"
+pushgitremote="$2"
+subid="$3"
+# change into the cluster-assigned temp directory. Not done by default in SGE
+# cd ${CBICA_TMPDIR}
+# OR Run it on a shared network drive
+cd /cbica/comp_space/$(basename $HOME)
+# Used for the branch names and the temp dir
+BRANCH="job-${JOB_ID}-${subid}"
+mkdir ${BRANCH}
+cd ${BRANCH}
+# get the analysis dataset, which includes the inputs as well
+# importantly, we do not clone from the lcoation that we want to push the
+# results to, in order to avoid too many jobs blocking access to
+# the same location and creating a throughput bottleneck
+datalad clone "${dssource}" ds
+# all following actions are performed in the context of the superdataset
+cd ds
+# in order to avoid accumulation temporary git-annex availability information
+# and to avoid a syncronization bottleneck by having to consolidate the
+# git-annex branch across jobs, we will only push the main tracking branch
+# back to the output store (plus the actual file content). Final availability
+# information can be establish via an eventual `git-annex fsck -f joc-storage`.
+# this remote is never fetched, it accumulates a larger number of branches
+# and we want to avoid progressive slowdown. Instead we only ever push
+# a unique branch per each job (subject AND process specific name)
+git remote add outputstore "$pushgitremote"
+# all results of this job will be put into a dedicated branch
+git checkout -b "${BRANCH}"
+# we pull down the input subject manually in order to discover relevant
+# files. We do this outside the recorded call, because on a potential
+# re-run we want to be able to do fine-grained recomputing of individual
+# outputs. The recorded calls will have specific paths that will enable
+# recomputation outside the scope of the original setup
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Do the run!
+datalad get -r pennlinc-containers
+sleep $[ ( $RANDOM % 5000 ) + 1 ]s
+datalad run \
+    -i code/xcp_hcpya_bootstrap.py \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii' \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii.gz*' \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement*' \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz' \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/**SBRef.nii.gz' \
+    --explicit \
+    -o ${subid}_xcp-0-0-1.zip \
+    -m "xcp-abcd-run ${subid}" \
+    "python /code/xcp_hcpya_bootstrap.py ${subid}"
+# file content first -- does not need a lock, no interaction with Git
+datalad push --to output-storage
+# and the output branch
+flock $DSLOCKFILE git push outputstore
+git annex dead here
+echo SUCCESS
+# job handler should clean up workspace
+EOT
+
+chmod +x code/participant_job.sh
 
 
-	# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
-	os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
-	cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-2/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(outdir,subid)
-    os.system(cmd)
+cp ${FREESURFER_HOME}/license.txt code/license.txt
 
-    """
-    audit
-    """
-    data = []
-    for fdir in ["RL","LR"]:
-       for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            data.append('_'.join([orig_task,fdir]))
+mkdir logs
+echo .SGE_datalad_lock >> .gitignore
+echo logs >> .gitignore
 
-    results = []
-    for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
-        results.append(r.split('/')[-1].split('-')[2].split('_')[0] + '_' +r.split('/')[-1].split('-')[3].split('_')[0])
-    data.sort()
-    results.sort()
-    ran = False
-    data = np.unique(data)
-    if len(np.intersect1d(data,results)) == len(data):
-        ran = True
-        line = 'No errors'
+datalad save -m "Participant compute job implementation"
 
-    else: line = None
-    if ran == False:
-        e_file=sorted(glob.glob('xcp/logs/*%s*.o*'%(subid)),key=os.path.getmtime)[-1]
-        with open(e_file) as f:
-            for line in f:
-                pass
-        print (subid,line)
-    sdf = pd.DataFrame(columns=['ran','subject','error'])
-    sdf['ran'] = [ran]
-    sdf['subject'] = [subid]
-    sdf['error'] = [line]
-    sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
+# Add a script for merging outputs
+MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
+cat > code/merge_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
+    >> code/merge_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
 
-    os.system('cd xcp')
-    os.system('7z a ../${subid}_xcp-0-0-1.zip xcp_abcd')
-    os.system(('rm -rf prep .git/tmp/wkdir')
+
+################################################################################
+# SGE SETUP START - remove or adjust to your needs
+################################################################################
+env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
+
+echo '#!/bin/bash' > code/qsub_calls.sh
+dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
+pushgitremote=$(git remote get-url --push output)
+eo_args="-e ${PWD}/logs -o ${PWD}/logs"
+for subject in ${SUBJECTS}; do
+  echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
+  ${PWD}/code/participant_job.sh \
+  ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
+done
+datalad save -m "SGE submission setup" code/ .gitignore
+
+################################################################################
+# SGE SETUP END
+################################################################################
+
+# cleanup - we have generated the job definitions, we do not need to keep a
+# massive input dataset around. Having it around wastes resources and makes many
+# git operations needlessly slow
+datalad uninstall -r --nocheck inputs/data
+
+
+# make sure the fully configured output dataset is available from the designated
+# store for initial cloning and pushing the results.
+datalad push --to input
+datalad push --to output
+
+
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
+
+# if we get here, we are happy
+echo SUCCESS
+
+#run last sge call to test
+#$(tail -n 1 code/qsub_calls.sh)
