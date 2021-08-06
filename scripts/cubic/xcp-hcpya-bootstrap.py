@@ -48,7 +48,7 @@ for fdir in ["RL","LR"]:
 		task_dir = '{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
-			command = 'OMP_NUM_THREADS=4 /cbica/home/bertolem/workbench/bin_rh_linux64/wb_command -cifti-stats {0} -reduce MEAN >> {1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
+			command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> {1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
 			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'

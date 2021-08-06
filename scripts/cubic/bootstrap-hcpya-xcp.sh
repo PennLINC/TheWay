@@ -36,6 +36,7 @@ then
     # exit 1
 fi
 
+module load connectome_workbench/1.4.2
 
 ##  hcp input
 HCPINPUT=https://github.com/datalad-datasets/human-connectome-project-openaccess
