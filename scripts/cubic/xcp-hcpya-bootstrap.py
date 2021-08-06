@@ -31,7 +31,7 @@ singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-latest.sif /$SUBJECT/fmr
 All subjects ran successfully.
 """
 
-os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json /{0}/fmriprepdir/dataset_description.json'.format(tmpdir))
+os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json /{0}/dataset_description.json'.format(outdir))
 #put this directly in here
 tasklist = []
 for fdir in ["RL","LR"]:
