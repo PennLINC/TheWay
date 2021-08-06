@@ -170,7 +170,7 @@ datalad run \
     --explicit \
     -o ${subid}_xcp-0-0-1.zip \
     -m "xcp-abcd-run ${subid}" \
-    "python code/xcp_hcpya_bootstrap.py ${subid}"
+    "python code/xcp-hcpya-bootstrap.py ${subid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
