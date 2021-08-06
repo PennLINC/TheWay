@@ -20,8 +20,7 @@ fi
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
 set -e -u
-#get the workhorse script
-wget https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/xcp-hcpya-bootstrap.py
+
 
 ## Set up the directory that will contain the necessary directories
 PROJECTROOT=${PWD}/xcp
@@ -61,6 +60,9 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 # point.
 datalad create -c yoda analysis
 cd analysis
+
+#get the workhorse script
+wget -O code/xcp-hcpya-bootstrap.py https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/xcp-hcpya-bootstrap.py
 
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
