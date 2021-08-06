@@ -31,25 +31,24 @@ singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-latest.sif /$SUBJECT/fmr
 All subjects ran successfully.
 """
 
-os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json /{0}/dataset_description.json'.format(outdir))
+os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json {0}/dataset_description.json'.format(outdir))
 #put this directly in here
 tasklist = []
 for fdir in ["RL","LR"]:
 	for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-		tdir = glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*'.format(hcp_dir,subid,orig_task,fdir))[0]
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		tdir = glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*'.format(hcp_dir,subid,orig_task,fdir))[0]
 		task = tdir.split('/')[-1]
 		tasklist.append(task)
-		task_dir = '/{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
-		os.chdir(task_dir)
+		task_dir = '{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
-			command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> /{1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
+			command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> {1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
 			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'
@@ -66,14 +65,14 @@ for j in tasklist:
 	datadir = hcp_dir +subid+'/MNINonLinear/Results/'+ j
 
 	if 'REST' not in j:
-		ResultsFolder='/{0}/{1}/MNINonLinear/Results/{2}/'.format(hcp_dir,subid,j)
-		ROIFolder="/{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
+		ResultsFolder='{0}/{1}/MNINonLinear/Results/{2}/'.format(hcp_dir,subid,j)
+		ROIFolder="{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
 
-		xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_WM.txt'.format(hcp_dir,subid,j,j)
+		xcp_file = '{0}/{1}/MNINonLinear/Results/{2}/{3}_WM.txt'.format(hcp_dir,subid,j,j)
 		cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/WMReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
 		os.system(cmd)
 
-		xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_CSF.txt'.format(hcp_dir,subid,j,j)
+		xcp_file = '{0}/{1}/MNINonLinear/Results/{2}/{3}_CSF.txt'.format(hcp_dir,subid,j,j)
 		cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/CSFReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
 		os.system(cmd)
 
@@ -102,14 +101,12 @@ for j in tasklist:
 						sep= '\t')
 	regressors.to_json(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.json')
 
-	regressors.to_csv('/cbica/home/bertolem/pines_gsr/'+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
-						sep= '\t')
 
-	hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/{2}_SBRef.nii.gz'.format(hcp_dir,subid,j)
+	hcp_mask = '{0}/{1}//MNINonLinear/Results/{2}/{2}_SBRef.nii.gz'.format(hcp_dir,subid,j)
 	prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_boldref.nii.gz'
 	copyfile(hcp_mask,prep_mask)
 
-	hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/brainmask_fs.2.nii.gz'.format(hcp_dir,subid,j)
+	hcp_mask = '{0}/{1}//MNINonLinear/Results/{2}/brainmask_fs.2.nii.gz'.format(hcp_dir,subid,j)
 	prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-brain_mask.nii.gz'
 	copyfile(hcp_mask,prep_mask)
 
@@ -165,12 +162,12 @@ for j in tasklist:
 	data = []
 	for fdir in ["RL","LR"]:
 		for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 			data.append('_'.join([orig_task,fdir]))
 
 	results = []
