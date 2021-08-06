@@ -164,10 +164,11 @@ datalad get -r pennlinc-containers
 datalad run \
     -i code/xcp_hcpya_bootstrap.py \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/**SBRef.nii.gz \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
     --explicit \
     -o ${subid}_xcp-0-0-1.zip \
     -m "xcp-abcd-run ${subid}" \
