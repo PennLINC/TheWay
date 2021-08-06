@@ -20,7 +20,8 @@ fi
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
 set -e -u
-
+#get the workhorse script
+wget https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/xcp-hcpya-bootstrap.py
 
 ## Set up the directory that will contain the necessary directories
 PROJECTROOT=${PWD}/xcp
