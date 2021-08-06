@@ -35,22 +35,22 @@ os.system('cp /cbica/home/bertolem/xcp_hcp/dataset_description.json /{0}/fmripre
 #put this directly in here
 tasklist = []
 for fdir in ["RL","LR"]:
-    for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-        tdir = glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*'.format(hcp_dir,subid,orig_task,fdir))[0]
-        task = tdir.split('/')[-1]
-        tasklist.append(task)
-        task_dir = '/{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
-        os.chdir(task_dir)
-        wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
-        if os.path.exists(wbs_file):
-            command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> /{1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
-            os.system(command)
+	for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		tdir = glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*'.format(hcp_dir,subid,orig_task,fdir))[0]
+		task = tdir.split('/')[-1]
+		tasklist.append(task)
+		task_dir = '/{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
+		os.chdir(task_dir)
+		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
+		if os.path.exists(wbs_file):
+			command = 'OMP_NUM_THREADS=4 wb_command -cifti-stats {0} -reduce MEAN >> /{1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
+			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'
 	funcdir=outdir+'/sub-'+subid+'/func/'
@@ -60,144 +60,144 @@ for fdir in ["RL","LR"]:
 
 for j in tasklist:
 
-    bb = j.split('_')
-    taskname = bb[1]
-    acqname = bb[2]
-    datadir = hcp_dir +subid+'/MNINonLinear/Results/'+ j
+	bb = j.split('_')
+	taskname = bb[1]
+	acqname = bb[2]
+	datadir = hcp_dir +subid+'/MNINonLinear/Results/'+ j
 
-    if 'REST' not in j:
-        ResultsFolder='/{0}/{1}/MNINonLinear/Results/{2}/'.format(hcp_dir,subid,j)
-        ROIFolder="/{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
+	if 'REST' not in j:
+		ResultsFolder='/{0}/{1}/MNINonLinear/Results/{2}/'.format(hcp_dir,subid,j)
+		ROIFolder="/{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
 
-        xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_WM.txt'.format(hcp_dir,subid,j,j)
-        cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/WMReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
-        os.system(cmd)
+		xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_WM.txt'.format(hcp_dir,subid,j,j)
+		cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/WMReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
+		os.system(cmd)
 
-        xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_CSF.txt'.format(hcp_dir,subid,j,j)
-        cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/CSFReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
-        os.system(cmd)
-
-
-    ##create confound regressors
-    mvreg = pd.read_csv(datadir +'/Movement_Regressors.txt',header=None,delimiter=r"\s+")
-    mvreg = mvreg.iloc[:,0:6]
-    mvreg.columns=['trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
-    # convert rot to rad
-    mvreg['rot_x']=mvreg['rot_x']*np.pi/180
-    mvreg['rot_y']=mvreg['rot_y']*np.pi/180
-    mvreg['rot_z']=mvreg['rot_z']*np.pi/180
+		xcp_file = '/{0}/{1}/MNINonLinear/Results/{2}/{3}_CSF.txt'.format(hcp_dir,subid,j,j)
+		cmd = "fslmeants -i {0}/{1}.nii.gz -o {2} -m {3}/CSFReg.2.nii.gz".format(ResultsFolder,j,xcp_file,ROIFolder)
+		os.system(cmd)
 
 
-    csfreg = np.loadtxt(datadir +'/'+ j + '_CSF.txt')
-    wmreg = np.loadtxt(datadir +'/'+ j + '_WM.txt')
-    gsreg = np.loadtxt(datadir +'/'+ j + '_WBS.txt')
-    rsmd = np.loadtxt(datadir +'/Movement_AbsoluteRMS.txt')
+	##create confound regressors
+	mvreg = pd.read_csv(datadir +'/Movement_Regressors.txt',header=None,delimiter=r"\s+")
+	mvreg = mvreg.iloc[:,0:6]
+	mvreg.columns=['trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+	# convert rot to rad
+	mvreg['rot_x']=mvreg['rot_x']*np.pi/180
+	mvreg['rot_y']=mvreg['rot_y']*np.pi/180
+	mvreg['rot_z']=mvreg['rot_z']*np.pi/180
 
 
-    brainreg = pd.DataFrame({'global_signal':gsreg,'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd })
-
-    regressors  =  pd.concat([mvreg, brainreg], axis=1)
-    jsonreg =  pd.DataFrame({'LR': [1,2,3]}) # just a fake json
-    regressors.to_csv(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
-                        sep= '\t')
-    regressors.to_json(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.json')
-
-    regressors.to_csv('/cbica/home/bertolem/pines_gsr/'+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
-                        sep= '\t')
-
-    hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/{2}_SBRef.nii.gz'.format(hcp_dir,subid,j)
-    prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_boldref.nii.gz'
-    copyfile(hcp_mask,prep_mask)
-
-    hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/brainmask_fs.2.nii.gz'.format(hcp_dir,subid,j)
-    prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-brain_mask.nii.gz'
-    copyfile(hcp_mask,prep_mask)
-
-    # create/copy  cifti
-    niftip  = '{0}/{1}/MNINonLinear/Results/{2}/{2}.nii.gz'.format(hcp_dir,subid,j,j) # to get TR  and just sample
-    niftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz'
-    ciftip = datadir + '/'+ j +'_Atlas_MSMAll.dtseries.nii'
-    ciftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.nii'
-
-    os.system('cp {0} {1}'.format(ciftip,ciftib))
-    os.system('cp {0} {1}'.format(niftip,niftib))
-
-    tr = nb.load(niftip).header.get_zooms()[-1]   # repetition time
-
-    jsontis={
-        "RepetitionTime": np.float(tr),
-        "TaskName": taskname
-    }
-    json2={
-        "RepetitionTime": np.float(tr),
-        "grayordinates": "91k", "space": "HCP grayordinates",
-        "surface": "fsLR","surface_density": "32k",
-        "volume": "MNI152NLin6Asym"
-        }
+	csfreg = np.loadtxt(datadir +'/'+ j + '_CSF.txt')
+	wmreg = np.loadtxt(datadir +'/'+ j + '_WM.txt')
+	gsreg = np.loadtxt(datadir +'/'+ j + '_WBS.txt')
+	rsmd = np.loadtxt(datadir +'/Movement_AbsoluteRMS.txt')
 
 
-    with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.json', 'w') as outfile:
-        json.dump(jsontis, outfile)
+	brainreg = pd.DataFrame({'global_signal':gsreg,'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd })
 
-    with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.json', 'w') as outfile:
-        json.dump(json2, outfile)
+	regressors  =  pd.concat([mvreg, brainreg], axis=1)
+	jsonreg =  pd.DataFrame({'LR': [1,2,3]}) # just a fake json
+	regressors.to_csv(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
+						sep= '\t')
+	regressors.to_json(funcdir+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.json')
 
-    
+	regressors.to_csv('/cbica/home/bertolem/pines_gsr/'+'sub-'+subid+'_task-'+taskname+'_acq-'+acqname+'_desc-confounds_timeseries.tsv',index=False,
+						sep= '\t')
 
-    # just fake anatomical profile for xcp, it wont be use
-    anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
-    mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
-    t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
-    cmd = 'cp {0} {1}'.format(anat1,mni2t1)
-    os.system(cmd)
-    cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
-    os.system(cmd)
+	hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/{2}_SBRef.nii.gz'.format(hcp_dir,subid,j)
+	prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_boldref.nii.gz'
+	copyfile(hcp_mask,prep_mask)
+
+	hcp_mask = '/{0}/{1}//MNINonLinear/Results/{2}/brainmask_fs.2.nii.gz'.format(hcp_dir,subid,j)
+	prep_mask = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-brain_mask.nii.gz'
+	copyfile(hcp_mask,prep_mask)
+
+	# create/copy  cifti
+	niftip  = '{0}/{1}/MNINonLinear/Results/{2}/{2}.nii.gz'.format(hcp_dir,subid,j,j) # to get TR  and just sample
+	niftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz'
+	ciftip = datadir + '/'+ j +'_Atlas_MSMAll.dtseries.nii'
+	ciftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.nii'
+
+	os.system('cp {0} {1}'.format(ciftip,ciftib))
+	os.system('cp {0} {1}'.format(niftip,niftib))
+
+	tr = nb.load(niftip).header.get_zooms()[-1]   # repetition time
+
+	jsontis={
+		"RepetitionTime": np.float(tr),
+		"TaskName": taskname
+	}
+	json2={
+		"RepetitionTime": np.float(tr),
+		"grayordinates": "91k", "space": "HCP grayordinates",
+		"surface": "fsLR","surface_density": "32k",
+		"volume": "MNI152NLin6Asym"
+		}
+
+
+	with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.json', 'w') as outfile:
+		json.dump(jsontis, outfile)
+
+	with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.json', 'w') as outfile:
+		json.dump(json2, outfile)
+
+	
+
+	# just fake anatomical profile for xcp, it wont be use
+	anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
+	mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
+	t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
+	cmd = 'cp {0} {1}'.format(anat1,mni2t1)
+	os.system(cmd)
+	cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
+	os.system(cmd)
 
 
 	# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
 	os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
 	cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-2/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(outdir,subid)
-    os.system(cmd)
+	os.system(cmd)
 
-    """
-    audit
-    """
-    data = []
-    for fdir in ["RL","LR"]:
-       for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-            data.append('_'.join([orig_task,fdir]))
+	"""
+	audit
+	"""
+	data = []
+	for fdir in ["RL","LR"]:
+	   for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			if len(glob.glob('/{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+			data.append('_'.join([orig_task,fdir]))
 
-    results = []
-    for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
-        results.append(r.split('/')[-1].split('-')[2].split('_')[0] + '_' +r.split('/')[-1].split('-')[3].split('_')[0])
-    data.sort()
-    results.sort()
-    ran = False
-    data = np.unique(data)
-    if len(np.intersect1d(data,results)) == len(data):
-        ran = True
-        line = 'No errors'
+	results = []
+	for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
+		results.append(r.split('/')[-1].split('-')[2].split('_')[0] + '_' +r.split('/')[-1].split('-')[3].split('_')[0])
+	data.sort()
+	results.sort()
+	ran = False
+	data = np.unique(data)
+	if len(np.intersect1d(data,results)) == len(data):
+		ran = True
+		line = 'No errors'
 
-    else: line = None
-    if ran == False:
-        e_file=sorted(glob.glob('xcp/logs/*%s*.o*'%(subid)),key=os.path.getmtime)[-1]
-        with open(e_file) as f:
-            for line in f:
-                pass
-        print (subid,line)
-    sdf = pd.DataFrame(columns=['ran','subject','error'])
-    sdf['ran'] = [ran]
-    sdf['subject'] = [subid]
-    sdf['error'] = [line]
-    sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
+	else: line = None
+	if ran == False:
+		e_file=sorted(glob.glob('xcp/logs/*%s*.o*'%(subid)),key=os.path.getmtime)[-1]
+		with open(e_file) as f:
+			for line in f:
+				pass
+		print (subid,line)
+	sdf = pd.DataFrame(columns=['ran','subject','error'])
+	sdf['ran'] = [ran]
+	sdf['subject'] = [subid]
+	sdf['error'] = [line]
+	sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
 
 
-    os.system('cd xcp')
-    os.system('7z a ../${subid}_xcp-0-0-1.zip xcp_abcd')
-    os.system(('rm -rf prep .git/tmp/wkdir')
+	os.system('cd xcp')
+	os.system('7z a ../${subid}_xcp-0-0-1.zip xcp_abcd')
+	os.system(('rm -rf prep .git/tmp/wkdir')
