@@ -199,5 +199,5 @@ for j in tasklist:
 
 
 	os.system('cd xcp')
-	os.system('7z a ../${subid}_xcp-0-0-1.zip xcp_abcd')
-	os.system(('rm -rf prep .git/tmp/wkdir')
+	os.system('7z a ../${0}_xcp-0-0-1.zip xcp_abcd'.format(subid))
+	os.system('rm -rf prep .git/tmp/wkdir')
