@@ -153,7 +153,7 @@ for j in tasklist:
 
 	# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
 	os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
-	cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-2/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(outdir,subid)
+	cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-2/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(subid)
 	os.system(cmd)
 
 	"""
