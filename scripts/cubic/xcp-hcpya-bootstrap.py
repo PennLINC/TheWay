@@ -170,31 +170,31 @@ for j in tasklist:
 			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 			data.append('_'.join([orig_task,fdir]))
 
-	results = []
-	for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
-		results.append(r.split('/')[-1].split('-')[2].split('_')[0] + '_' +r.split('/')[-1].split('-')[3].split('_')[0])
-	data.sort()
-	results.sort()
-	ran = False
-	data = np.unique(data)
-	if len(np.intersect1d(data,results)) == len(data):
-		ran = True
-		line = 'No errors'
+results = []
+for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
+	results.append(r.split('/')[-1].split('-')[2].split('_')[0] + '_' +r.split('/')[-1].split('-')[3].split('_')[0])
+data.sort()
+results.sort()
+ran = False
+data = np.unique(data)
+if len(np.intersect1d(data,results)) == len(data):
+	ran = True
+	line = 'No errors'
 
-	else: line = None
-	if ran == False:
-		e_file=sorted(glob.glob('xcp/logs/*%s*.o*'%(subid)),key=os.path.getmtime)[-1]
-		with open(e_file) as f:
-			for line in f:
-				pass
-		print (subid,line)
-	sdf = pd.DataFrame(columns=['ran','subject','error'])
-	sdf['ran'] = [ran]
-	sdf['subject'] = [subid]
-	sdf['error'] = [line]
-	sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
+else: line = None
+if ran == False:
+	e_file=sorted(glob.glob('/cbica/projects/RBC/hcpya/xcp/analysis/logs/*%s*.o*'%(subid)),key=os.path.getmtime)[-1]
+	with open(e_file) as f:
+		for line in f:
+			pass
+	print (subid,line)
+sdf = pd.DataFrame(columns=['ran','subject','error'])
+sdf['ran'] = [ran]
+sdf['subject'] = [subid]
+sdf['error'] = [line]
+sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
 
 
-	os.system('cd xcp')
-	os.system('7z a ../${0}_xcp-0-0-1.zip xcp_abcd'.format(subid))
-	os.system('rm -rf prep .git/tmp/wkdir')
+os.system('cd xcp')
+os.system('7z a ../${0}_xcp-0-0-1.zip xcp_abcd'.format(subid))
+os.system('rm -rf prep .git/tmp/wkdir')
