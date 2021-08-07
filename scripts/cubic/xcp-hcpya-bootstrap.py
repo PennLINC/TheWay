@@ -17,7 +17,7 @@ subid = str(sys.argv[1])
 hcp_dir = 'inputs/data/HCP1200/'
 outdir = 'fmriprepdir/'
 os.makedirs(outdir,exist_ok=True)
-
+os.system('module load connectome_workbench/1.4.2')
 """
 Data Narrative
 
