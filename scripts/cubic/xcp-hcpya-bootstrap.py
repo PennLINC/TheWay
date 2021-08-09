@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 from scipy.stats import pearsonr
 
 subid = str(sys.argv[1])
+# subid = '996782'
 hcp_dir = 'inputs/data/HCP1200/'
 outdir = 'fmriprepdir/'
 os.makedirs(outdir,exist_ok=True)
@@ -48,6 +49,7 @@ for fdir in ["RL","LR"]:
 		task_dir = '{0}/{1}/MNINonLinear/Results/{2}'.format(hcp_dir,subid,task)
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
+			os.system('rm {0}/{1}_WBS.txt'.format(task_dir,task))
 			command = 'OMP_NUM_THREADS=4 /cbica/home/bertolem/workbench/bin_rh_linux64/wb_command -cifti-stats {0} -reduce MEAN >> {1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
 			os.system(command)
 
@@ -93,7 +95,7 @@ for j in tasklist:
 	rsmd = np.loadtxt(datadir +'/Movement_AbsoluteRMS.txt')
 
 
-	brainreg = pd.DataFrame({'global_signal':gsreg,'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd })
+	brainreg = pd.DataFrame({'global_signal':gsreg],'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd})
 
 	regressors  =  pd.concat([mvreg, brainreg], axis=1)
 	jsonreg =  pd.DataFrame({'LR': [1,2,3]}) # just a fake json
@@ -119,19 +121,9 @@ for j in tasklist:
 	os.system('cp {0} {1}'.format(ciftip,ciftib))
 	os.system('cp {0} {1}'.format(niftip,niftib))
 
-	tr = nb.load(niftip).header.get_zooms()[-1]   # repetition time
-
-	jsontis={
-		"RepetitionTime": np.float(tr),
-		"TaskName": taskname
-	}
-	json2={
-		"RepetitionTime": np.float(tr),
-		"grayordinates": "91k", "space": "HCP grayordinates",
-		"surface": "fsLR","surface_density": "32k",
-		"volume": "MNI152NLin6Asym"
-		}
-
+	tr = nb.load(niftip).header.get_zooms()[-1]# repetition time
+	jsontis={"RepetitionTime": np.float(tr),"TaskName": taskname}
+	json2={"RepetitionTime": np.float(tr),"grayordinates": "91k", "space": "HCP grayordinates","surface": "fsLR","surface_density": "32k","volume": "MNI152NLin6Asym"}
 
 	with open(funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.json', 'w') as outfile:
 		json.dump(jsontis, outfile)
