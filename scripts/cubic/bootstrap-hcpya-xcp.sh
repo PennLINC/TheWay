@@ -177,7 +177,7 @@ git checkout -b "${BRANCH}"
 datalad get -r pennlinc-containers
 # sleep $[ ( $RANDOM % 60 ) + 1 ]s
 datalad run \
-    -i code/xcp_hcpya_bootstrap.py \
+    -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
