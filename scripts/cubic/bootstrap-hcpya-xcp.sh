@@ -169,6 +169,7 @@ datalad run \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
     --explicit \
     -o ${subid}_xcp-0-0-1.zip \
     -m "xcp-abcd-run ${subid}" \
