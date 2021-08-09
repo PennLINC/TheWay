@@ -139,25 +139,39 @@ git checkout -b "${BRANCH}"
 BIDS_DIR=${PWD}/inputs/data/inputs/data
 ZIPS_DIR=${PWD}/inputs/data
 ERROR_DIR=${PWD}/inputs/freesurfer_logs
+
 CSV_DIR=csvs
 mkdir ${CSV_DIR}
-output_file=${CSV_DIR}/${subid}_freesurfer_audit.csv
+TMP_DIR=tmp
+mkdir ${TMP_DIR}
+
+output_csv=${CSV_DIR}/${subid}_freesurfer_audit.csv
+output_png=${CSV_DIR}/${subid}_T1w.png
 datalad get -n inputs/data
-INPUT_ZIP=$(ls inputs/data/${subid}_freesurfer*.zip | cut -d '@' -f 1 || true)
-if [ ! -z "${INPUT_ZIP}" ]; then
-    INPUT_ZIP="-i ${INPUT_ZIP}"
+FS_INPUT_ZIP=$(ls inputs/data/${subid}_freesurfer*.zip | cut -d '@' -f 1 || true)
+if [ ! -z "${FS_INPUT_ZIP}" ]; then
+    FS_INPUT_ZIP="-i ${FS_INPUT_ZIP}"
 fi
+
+FMRI_INPUT_ZIP=$(ls inputs/data/${subid}_fmriprep*.zip | cut -d '@' -f 1 || true)
+if [ ! -z "${FMRI_INPUT_ZIP}" ]; then
+    FMRI_INPUT_ZIP="-i ${FMRI_INPUT_ZIP}"
+fi
+
 echo DATALAD RUN INPUT
-echo ${INPUT_ZIP}
+echo ${FS_INPUT_ZIP}
+echo ${FMRI_INPUT_ZIP}
 datalad run \
     -i code/fs_euler_checker.py \
-    ${INPUT_ZIP} \
+    ${FS_INPUT_ZIP} \
+    ${FMRI_INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/freesurfer_logs/*${subid}* \
     --explicit \
-    -o ${output_file} \
+    -o ${output_png} \
+    -o ${output_csv} \
     -m "freesurfer-audit ${subid}" \
-    "python code/fs_euler_checker.py ${subid} ${ZIPS_DIR} ${output_file}"
+    "python code/fs_euler_checker.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}" 
     
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
