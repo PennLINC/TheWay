@@ -162,7 +162,7 @@ echo DATALAD RUN INPUT
 echo ${FS_INPUT_ZIP}
 echo ${FMRI_INPUT_ZIP}
 datalad run \
-    -i code/fs_euler_checker.py \
+    -i code/fs_euler_checker_and_plots.py \
     ${FS_INPUT_ZIP} \
     ${FMRI_INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
@@ -171,7 +171,7 @@ datalad run \
     -o ${output_png} \
     -o ${output_csv} \
     -m "freesurfer-audit ${subid}" \
-    "python code/fs_euler_checker.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}" 
+    "python code/fs_euler_checker_and_plots.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}" 
     
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -184,9 +184,9 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fs_euler_checker.py
-mv fs_euler_checker.py code/
-chmod +x code/fs_euler_checker.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fs_euler_checker_and_plots.py
+mv fs_euler_checker_and_plots.py code/
+chmod +x code/fs_euler_checker_and_plots.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
