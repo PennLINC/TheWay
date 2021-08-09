@@ -141,34 +141,33 @@ for j in tasklist:
 
 	
 
-	# just fake anatomical profile for xcp, it wont be use
-	anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
-	mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
-	t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
-	cmd = 'cp {0} {1}'.format(anat1,mni2t1)
-	os.system(cmd)
-	cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
-	os.system(cmd)
+# just fake anatomical profile for xcp, it wont be use
+anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
+mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
+t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
+cmd = 'cp {0} {1}'.format(anat1,mni2t1)
+os.system(cmd)
+cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
+os.system(cmd)
 
+# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
+os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
+cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(subid)
+os.system(cmd)
 
-	# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
-	os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
-	cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(subid)
-	os.system(cmd)
-
-	"""
-	audit
-	"""
-	data = []
-	for fdir in ["RL","LR"]:
-		for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
-			data.append('_'.join([orig_task,fdir]))
+"""
+audit
+"""
+data = []
+for fdir in ["RL","LR"]:
+	for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_AbsoluteRMS.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/SBRef_dc.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/**SBRef.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
+		data.append('_'.join([orig_task,fdir]))
 
 results = []
 for r in glob.glob('xcp/xcp_abcd/sub-%s/func/*Schaefer417*pconn*'%(subid)):
