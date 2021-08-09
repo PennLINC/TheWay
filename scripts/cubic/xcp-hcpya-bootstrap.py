@@ -1,4 +1,4 @@
-#!~/anaconda3/bin/python
+#!/usr/bin/env python
 import glob
 import os
 import sys
