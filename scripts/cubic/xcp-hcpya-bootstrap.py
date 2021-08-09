@@ -95,7 +95,7 @@ for j in tasklist:
 	rsmd = np.loadtxt(datadir +'/Movement_AbsoluteRMS.txt')
 
 
-	brainreg = pd.DataFrame({'global_signal':gsreg],'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd})
+	brainreg = pd.DataFrame({'global_signal':gsreg,'white_matter':wmreg,'csf':csfreg,'rmsd':rsmd})
 
 	regressors  =  pd.concat([mvreg, brainreg], axis=1)
 	jsonreg =  pd.DataFrame({'LR': [1,2,3]}) # just a fake json
