@@ -15,11 +15,9 @@ from scipy.stats import pearsonr
 
 nslots = subprocess.run(['echo $NSLOTS'], stdout=subprocess.PIPE,shell=True).stdout.decode('utf-8').split('\n')[0]
 subid = str(sys.argv[1])
-# subid = '996782'
 hcp_dir = 'inputs/data/HCP1200/'
 outdir = 'fmriprepdir/'
 os.makedirs(outdir,exist_ok=True)
-os.system('module load connectome_workbench/1.4.2')
 """
 Data Narrative
 
@@ -29,7 +27,7 @@ For all tasks, the global signal timeseries was generated with: wb_command -cift
 and white matter time series. For all other tasks (i.e., all tfMRI), we generated those files in the exact manner the HCP did: fslmeants -i tfMRI_{Task}_{Encoding}.nii -o CSF.txt -m CSFReg.2.nii.gz; fslmeants -i tfMRI_{Task}_{Encoding}.nii -o WM.txt -m WMReg.2.nii.gz.
 To ensure this process was identical, we generated these time series for the rfMRI sessions and compared them to the HCP distributed timeseries, ensuring they are identical. These files were then formatted into fMRIprep outputs by renaming the files,
 creating the regression json, and creating dummy transforms. These inputs were then analyzed by xcp_abcd with the following command:
-singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-latest.sif /$SUBJECT/fmriprepdir/ ~/xcp_hcp/xcp_results/ participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-$SUBJECT -p 36P -f 100 --omp-nthreads 4 --nthreads 4
+singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-0.0.4.sif fmriprepdir/ xcp/ participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-$SUBJECT -p 36P -f 100 --omp-nthreads 4 --nthreads 4
 All subjects ran successfully.
 """
 
@@ -143,7 +141,6 @@ os.system(cmd)
 cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
 os.system(cmd)
 
-# singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
 os.system('export SINGULARITYENV_OMP_NUM_THREADS={0}'.format(nslots))
 cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads {1} --cifti'%(subid,nslots)
 os.system(cmd)
