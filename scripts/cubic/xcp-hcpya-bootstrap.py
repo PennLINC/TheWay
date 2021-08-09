@@ -188,5 +188,5 @@ sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
 
 
 os.system('cd xcp')
-os.system('7z a ../${0}_xcp-0-0-1.zip xcp_abcd'.format(subid))
+os.system('7z a ../${0}_xcp-0.0.4.zip xcp_abcd'.format(subid))
 os.system('rm -rf prep .git/tmp/wkdir')
