@@ -65,6 +65,21 @@ cd analysis
 #get the workhorse script
 wget -O code/xcp-hcpya-bootstrap.py https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/xcp-hcpya-bootstrap.py
 
+cat >> code/dataset_description.json << "EOT"
+{
+    "Name": "fMRIPrep - fMRI PREProcessing workflow",
+    "BIDSVersion": "1.4.0",
+    "DatasetType": "derivative",
+    "GeneratedBy": [
+        {
+            "Name": "fMRIPrep",
+            "Version": "20.2.1",
+            "CodeURL": "https://github.com/nipreps/fmriprep/archive/20.2.1.tar.gz"
+        }
+    ],
+    "HowToAcknowledge": "Please cite our paper (https://doi.org/10.1038/s41592-018-0235-4), and include the generated citation boilerplate within the Methods section of the text."
+EOT
+
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
 datalad create-sibling-ria -s output "${output_store}"
@@ -163,6 +178,7 @@ datalad get -r pennlinc-containers
 # sleep $[ ( $RANDOM % 60 ) + 1 ]s
 datalad run \
     -i code/xcp_hcpya_bootstrap.py \
+    -i code/dataset_description.json \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement* \
