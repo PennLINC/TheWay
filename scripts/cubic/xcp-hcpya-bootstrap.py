@@ -30,12 +30,14 @@ creating the regression json, and creating dummy transforms. These inputs were t
 singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-0.0.4.sif fmriprepdir/ xcp/ participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-$SUBJECT -p 36P -f 100 --omp-nthreads 4 --nthreads 4
 All subjects ran successfully.
 """
-
+fdirs = ["RL","LR"]
+orig_tasks = ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]
+orig_tasks = ["REST1"]
 os.system('cp code/dataset_description.json {0}/dataset_description.json'.format(outdir))
 #put this directly in here
 tasklist = []
-for fdir in ["RL","LR"]:
-	for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
+for fdir in fdirs:
+	for orig_task in orig_tasks:
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
@@ -149,8 +151,8 @@ os.system(cmd)
 audit
 """
 data = []
-for fdir in ["RL","LR"]:
-	for orig_task in ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]:
+for fdir in fdirs:
+	for orig_task in orig_tasks:
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/*{2}_{3}.nii.gz'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
 		if len(glob.glob('{0}/{1}/MNINonLinear/Results/*{2}*{3}*/Movement_Regressors.txt'.format(hcp_dir,subid,orig_task,fdir))) != 1: continue
@@ -181,7 +183,7 @@ sdf = pd.DataFrame(columns=['ran','subject','error'])
 sdf['ran'] = [ran]
 sdf['subject'] = [subid]
 sdf['error'] = [line]
-sdf.to_csv('xcp/audit_{0}.csv'.format(subid),index=False)
+sdf.to_csv('xcp/xcp_abcd/sub-{0}/audit_{0}.csv'.format(subid),index=False)
 
 
 os.system('cd xcp')
