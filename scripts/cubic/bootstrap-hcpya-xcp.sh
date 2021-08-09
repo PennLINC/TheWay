@@ -106,16 +106,16 @@ cd ${PROJECTROOT}
 
 #MUST BE AS NOT RBC USER
 # build the container in /cbica/projects/RBC/dropbox
-# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:latest
+# singularity build xcp-abcd-0.0.4.sif docker://pennlinc/xcp_abcd:0.0.4
 
 #AS RBC
 # then copy to /cbica/projects/RBC/xcp-abcd-container
 # datalad create -D "xcp-abcd container".
 # do that actual copy
-#datalad containers-add --url ~/dropbox/xcp-abcd-latest.sif xcp-abcd-latest --update
+#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.4.sif xcp-abcd-0.0.4 --update
 
 #can delete
-#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.1.sif
+#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.4.sif
 
 CONTAINERDS=~/xcp-abcd-container
 datalad clone ${CONTAINERDS} pennlinc-containers
@@ -187,7 +187,7 @@ datalad run \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
     --explicit \
-    -o ${subid}_xcp-0-0-1.zip \
+    -o ${subid}_xcp-0-0-4.zip \
     -m "xcp-abcd-run ${subid}" \
     "python code/xcp-hcpya-bootstrap.py ${subid}"
 # file content first -- does not need a lock, no interaction with Git
