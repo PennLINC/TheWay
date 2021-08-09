@@ -13,6 +13,7 @@ import time
 from sklearn.linear_model import LinearRegression
 from scipy.stats import pearsonr
 
+nslots = subprocess.run(['echo $NSLOTS'], stdout=subprocess.PIPE,shell=True).stdout.decode('utf-8').split('\n')[0]
 subid = str(sys.argv[1])
 # subid = '996782'
 hcp_dir = 'inputs/data/HCP1200/'
@@ -50,7 +51,7 @@ for fdir in ["RL","LR"]:
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
 			os.system('rm {0}/{1}_WBS.txt'.format(task_dir,task))
-			command = 'OMP_NUM_THREADS=4 /cbica/home/bertolem/workbench/bin_rh_linux64/wb_command -cifti-stats {0} -reduce MEAN >> {1}/{2}_WBS.txt'.format(wbs_file,task_dir,task)
+			command = 'singularity exec -B ${PWD} --env OMP_NTHREADS={0} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image wb_command -cifti-stats {1} -reduce MEAN >> {2}/{3}_WBS.txt'.format(nslots,wbs_file,task_dir,task)
 			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'
@@ -143,8 +144,8 @@ cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
 os.system(cmd)
 
 # singularity build xcp-abcd-latest.sif docker://pennlinc/xcp_abcd:latest
-os.system('export SINGULARITYENV_OMP_NUM_THREADS=4')
-cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads 4 --cifti'%(subid)
+os.system('export SINGULARITYENV_OMP_NUM_THREADS={0}'.format(nslots))
+cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-latest/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads {1} --cifti'%(subid,nslots)
 os.system(cmd)
 
 """
