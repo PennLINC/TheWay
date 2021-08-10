@@ -52,7 +52,7 @@ for fdir in fdirs:
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
 			os.system('rm {0}/{1}_WBS.txt'.format(task_dir,task))
-			command = 'singularity exec -B ${PWD} --env OMP_NTHREADS={0} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image wb_command -cifti-stats {1} -reduce MEAN >> {2}/{3}_WBS.txt'.format(nslots,wbs_file,task_dir,task)
+			command = 'singularity exec -B ${0} --env OMP_NTHREADS={1} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image wb_command -cifti-stats {2} -reduce MEAN >> {3}/{4}_WBS.txt'.format('PWD',nslots,wbs_file,task_dir,task)
 			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'
@@ -145,7 +145,7 @@ cmd = 'cp {0} {1}'.format(anat1,t1w2mni)
 os.system(cmd)
 
 os.system('export SINGULARITYENV_OMP_NUM_THREADS={0}'.format(nslots))
-cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads {1} --cifti'%(subid,nslots)
+cmd = 'singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image fmriprepdir xcp participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-%s -p 36P -f 100 --nthreads %s --cifti'%(subid,nslots)
 os.system(cmd)
 
 """
