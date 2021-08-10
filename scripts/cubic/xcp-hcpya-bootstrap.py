@@ -186,7 +186,8 @@ sdf['subject'] = [subid]
 sdf['error'] = [line]
 sdf.to_csv('xcp/xcp_abcd/sub-{0}/audit_{0}.csv'.format(subid),index=False)
 
-
+os.system('pwd')
 os.system('cd xcp')
+os.system('pwd')
 os.system('7z a ../{0}_xcp-0.0.4.zip xcp_abcd'.format(subid))
 os.system('rm -rf prep .git/tmp/wkdir')
