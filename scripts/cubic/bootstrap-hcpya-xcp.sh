@@ -78,6 +78,7 @@ cat >> code/dataset_description.json << "EOT"
         }
     ],
     "HowToAcknowledge": "Please cite our paper (https://doi.org/10.1038/s41592-018-0235-4), and include the generated citation boilerplate within the Methods section of the text."
+}
 EOT
 
 # create dedicated input and output locations. Results will be pushed into the
