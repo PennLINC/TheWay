@@ -52,7 +52,7 @@ for fdir in fdirs:
 		wbs_file = '{0}/{1}/MNINonLinear/Results/{2}/{2}_Atlas_MSMAll.dtseries.nii'.format(hcp_dir,subid,task)
 		if os.path.exists(wbs_file):
 			os.system('rm {0}/{1}_WBS.txt'.format(task_dir,task))
-			command = 'singularity exec -B ${PWD} --env OMP_NTHREADS=%s pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image wb_command -cifti-stats %s -reduce MEAN >> %s/%s_WBS.txt'.format('PWD',nslots,wbs_file,task_dir,task)
+			command = 'singularity exec -B ${PWD} --env OMP_NTHREADS=%s pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image wb_command -cifti-stats %s -reduce MEAN >> %s/%s_WBS.txt'%(nslots,wbs_file,task_dir,task)
 			os.system(command)
 
 	anatdir=outdir+'/sub-'+subid+'/anat/'
