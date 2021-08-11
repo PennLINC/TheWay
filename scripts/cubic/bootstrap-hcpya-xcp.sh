@@ -132,6 +132,7 @@ cat > code/participant_job.sh << "EOT"
 #$ -l s_vmem=32G
 #$ -l tmpfree=100G
 #$ -pe threaded 4
+#$ -j y
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
