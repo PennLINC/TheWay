@@ -128,8 +128,8 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=32G
-#$ -l s_vmem=32G
+#$ -l h_vmem=18G
+#$ -l s_vmem=18G
 #$ -l tmpfree=100G
 #$ -pe threaded 4
 #$ -j y
