@@ -23,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/fmriprep
+PROJECTROOT=${PWD}/c-pac-1.8.1
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -180,15 +180,14 @@ datalad get -n "inputs/data/${subid}"
 # Do the run!
 
 datalad run \
-    -i code/fmriprep_zip.sh \
+    -i code/c-pac_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    -i /cbica/home/clucasj/cpac-1.8.1-dev-exemplars/.datalad/environments/cpac-1-8-1-dev/image \
     --explicit \
-    -o ${subid}_fmriprep-20.2.1.zip \
-    -o ${subid}_freesurfer-20.2.1.zip \
-    -m "fmriprep:20.2.1 ${subid}" \
-    "bash ./code/fmriprep_zip.sh ${subid}"
+    -o ${subid}_c-pac-1.8.1.zip \
+    -m "C-PAC:1.8.1-dev ${subid}" \
+    "bash ./code/c-pac_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -201,36 +200,28 @@ EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/fmriprep_zip.sh << "EOT"
+cat > code/c-pac_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    /cbica/home/clucasj/cpac-1.8.1-dev-exemplars/.datalad/environments/cpac-1-8-1-dev/image \
     inputs/data \
-    prep \
+    c-pac_outputs \
     participant \
     -w ${PWD}/.git/wkdir \
-    --n_cpus 1 \
-    --stop-on-first-crash \
-    --fs-license-file code/license.txt \
-    --skip-bids-validation \
-    --output-spaces MNI152NLin6Asym:res-2 \
-    --participant-label "$subid" \
-    --force-bbr \
-    --cifti-output 91k -v -v
+    --preconfig fx-options \
+    --skip_bids_validator \
+    --participant_label "$subid"
 
-cd prep
-7z a ../${subid}_fmriprep-20.2.1.zip fmriprep
-7z a ../${subid}_freesurfer-20.2.1.zip freesurfer
+7z a ../${subid}_c-pac-1.8.1-dev.zip c-pac_outputs
 rm -rf prep .git/tmp/wkdir
 
 EOT
 
-chmod +x code/fmriprep_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+chmod +x code/c-pac_zip.sh
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
