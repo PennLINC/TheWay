@@ -128,7 +128,7 @@ cat > code/participant_job.sh << "EOT"
 #$ -S /bin/bash
 #$ -l h_vmem=18G
 #$ -l s_vmem=18G
-#$ -l tmpfree=200G
+#$ -l tmpfree=300G
 #$ -pe threaded 4
 #$ -j y
 # Set up the correct conda environment
