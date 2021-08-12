@@ -106,20 +106,19 @@ cd ${PROJECTROOT}
 
 #MUST BE AS NOT RBC USER
 # build the container in /cbica/projects/RBC/dropbox
-# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:latest
+# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:0.0.4
 
 #AS RBC
 # then copy to /cbica/projects/RBC/xcp-abcd-container
 # datalad create -D "xcp-abcd container".
 
 # do that actual copy
-#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.1.sif xcp-abcd-0-0-1 --update
+#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.4.sif xcp-abcd-0-0-4 --update
 
 #can delete
-#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.1.sif
+#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.4.sif
 
-#CONTAINERDS=~/xcp-abcd-container
-CONTAINERDS=$2
+CONTAINERDS=~/xcp-abcd-container
 if [[ ! -z "${CONTAINERDS}" ]]; then
     datalad clone ${CONTAINERDS} pennlinc-containers
 else
@@ -199,7 +198,7 @@ datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}*fmriprep*.zip \
     --explicit \
-    -o ${subid}_xcp-0-0-1.zip \
+    -o ${subid}_xcp-0-0-4.zip \
     -m "xcp-abcd-run ${subid}" \
     "bash ./code/xcp_zip.sh ${subid}"
 
@@ -227,12 +226,12 @@ cd inputs/data
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-1/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
 cd xcp
-7z a ../${subid}_xcp-0-0-1.zip xcp_abcd
+7z a ../${subid}_xcp-0-0-4.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 EOT
 
@@ -306,6 +305,5 @@ echo SUCCESS
 #$(tail -n 1 code/qsub_calls.sh)
 
 
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data' ~/xcp-abcd-container/
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data' ~/xcp-abcd-container/
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/testing/ccnp_fmriprep_2009c/fmriprep/output_ria#~data' ~/xcp-abcd-container/
+# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data'
+# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data'
