@@ -126,8 +126,8 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=18G
-#$ -l s_vmem=18G
+#$ -l h_vmem=30G
+#$ -l s_vmem=30G
 #$ -l tmpfree=100G
 #$ -pe threaded 4
 #$ -j y
@@ -141,9 +141,9 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-# cd ${CBICA_TMPDIR}
+cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-cd /cbica/comp_space/$(basename $HOME)
+# cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
