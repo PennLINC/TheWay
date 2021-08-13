@@ -99,10 +99,14 @@ then
     # exit 1
 fi
 
-
-## Add the containers as a subdataset
+set +u
+CONTAINERDS=$2
+set -u
+#if [[ ! -z "${CONTAINERDS}" ]]; then
 cd ${PROJECTROOT}
-datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
+datalad clone ${CONTAINERDS} pennlinc-containers
+## Add the containers as a subdataset
+#datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
 # download the image so we don't ddos pmacs
 cd pennlinc-containers
 datalad get -r .
@@ -183,11 +187,11 @@ datalad run \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
     --explicit \
-    -o ${subid}_fmriprep-20.2.1.zip \
-    -o ${subid}_freesurfer-20.2.1.zip \
-    -m "fmriprep:20.2.1 ${subid}" \
+    -o ${subid}_fmriprep-20.2.3.zip \
+    -o ${subid}_freesurfer-20.2.3.zip \
+    -m "fmriprep:20.2.3 ${subid}" \
     "bash ./code/fmriprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -208,7 +212,7 @@ set -e -u -x
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-1/image \
+    pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
     inputs/data \
     prep \
     participant \
@@ -223,8 +227,8 @@ singularity run --cleanenv -B ${PWD} \
     --cifti-output 91k -v -v
 
 cd prep
-7z a ../${subid}_fmriprep-20.2.1.zip fmriprep
-7z a ../${subid}_freesurfer-20.2.1.zip freesurfer
+7z a ../${subid}_fmriprep-20.2.3.zip fmriprep
+7z a ../${subid}_freesurfer-20.2.3.zip freesurfer
 rm -rf prep .git/tmp/wkdir
 
 EOT
