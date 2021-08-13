@@ -99,16 +99,12 @@ then
     # exit 1
 fi
 
-
-## Add the containers as a subdataset
 cd ${PROJECTROOT}
-datalad clone /cbica/projects/RBC/pennlinc-containers pennlinc-containers
-cd pennlinc-containers
-datalad get -r .
-# get rid of the references
-set +e
-datalad siblings remove -s origin
-set -e
+
+CONTAINERDS=$2
+if [[ ! -z "${CONTAINERDS}" ]]; then
+    datalad clone ${CONTAINERDS} pennlinc-containers
+fi
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -181,7 +177,7 @@ datalad run \
     -i code/c-pac_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i /cbica/home/clucasj/cpac-1.8.1-dev-exemplars/.datalad/environments/cpac-1-8-1-dev/image \
+    -i pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
     --explicit \
     -o ${subid}_c-pac-1.8.1.zip \
     -m "C-PAC:1.8.1-dev ${subid}" \
@@ -205,7 +201,7 @@ set -e -u -x
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    /cbica/home/clucasj/cpac-1.8.1-dev-exemplars/.datalad/environments/cpac-1-8-1-dev/image \
+    pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
     inputs/data \
     c-pac_outputs \
     participant \
