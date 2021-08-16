@@ -211,7 +211,7 @@ singularity run --cleanenv -B ${PWD} \
     --participant_label "$subid"
 
 7z a ../${subid}_c-pac-1.8.1-dev.zip c-pac_outputs
-rm -rf prep .git/tmp/wkdir
+rm -rf c-pac_outputs .git/tmp/wkdir
 
 EOT
 
