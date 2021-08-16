@@ -23,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/c-pac-1.8.1
+PROJECTROOT=${PWD}/c-pac-1.8.1-dev
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -179,7 +179,7 @@ datalad run \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
     --explicit \
-    -o ${subid}_c-pac-1.8.1.zip \
+    -o ${subid}_c-pac-1.8.1-dev.zip \
     -m "C-PAC:1.8.1-dev ${subid}" \
     "bash ./code/c-pac_zip.sh ${subid}"
 
