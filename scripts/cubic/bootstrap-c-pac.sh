@@ -205,7 +205,7 @@ singularity run --cleanenv -B ${PWD} \
     inputs/data \
     c-pac_outputs \
     participant \
-    -w ${PWD}/.git/wkdir \
+    --save_working_dir ${PWD}/.git/wkdir \
     --preconfig fx-options \
     --skip_bids_validator \
     --participant_label "$subid"
