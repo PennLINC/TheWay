@@ -209,6 +209,8 @@ singularity run --cleanenv \
     participant \
     --preconfig fx-options \
     --skip_bids_validator \
+    --n_cpus 4 \
+    --mem_gb 32 \
     --participant_label "$subid"
 
 7z a ../${subid}_c-pac-1.8.1-dev.zip ${subid}_outputs
