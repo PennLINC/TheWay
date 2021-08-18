@@ -199,19 +199,20 @@ cat > code/c-pac_zip.sh << "EOT"
 set -e -u -x
 
 subid="$1"
+mkdir -p ${sub_id}_outputs
 singularity run --cleanenv \
     -B ${PWD} \
-    -B ${PWD}/outputs:/outputs \
+    -B ${PWD}/${sub_id}_outputs:/outputs \
     pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
     inputs/data \
-    outputs \
+    /outputs \
     participant \
     --preconfig fx-options \
     --skip_bids_validator \
     --participant_label "$subid"
 
-7z a ../${subid}_c-pac-1.8.1-dev.zip outputs
-rm -rf outputs
+7z a ../${subid}_c-pac-1.8.1-dev.zip ${sub_id}_outputs
+rm -rf ${sub_id}_outputs
 
 EOT
 
