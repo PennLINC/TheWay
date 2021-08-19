@@ -153,5 +153,44 @@ datalad save -m "LSF submission setup" code/ .gitignore
 # LSF SETUP END
 ################################################################################
 
+
+#########################
+# Merge outputs script
+cat > code/merge_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+echo "output_store=${output_store}" >> code/merge_outputs.sh
+echo "BIDSINPUT=${BIDSINPUT}" >> code/merge_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+
+cat >> code/merge_outputs.sh << "EOT"
+subjects=$(ls output_ria/alias)
+datalad create -D "Collection of BIDS subdatasets" -d merge_ds
+cd merge_ds
+for subject in $subjects
+do
+    datalad clone -d . ${output_store}"#~${subject}" $subject
+done
+datalad create-sibling-ria -s output "${output_store}"
+
+# Copy the non-subject data into here
+cp $(find $BIDSINPUT -maxdepth 1 -type f) .
+datalad save -m "Add subdatasets"
+datalad push --to output
+
+ria_path=$(datalad siblings | grep 'output(-' | sed 's/.*\[\(.*\) (git)\]/\1/')
+
+# stop tracking this branch
+datalad drop --nocheck .
+git annex dead here
+
+cd ${ria_path}/../../alias
+pt1=$(basename `dirname $ria_path`)
+pt2=$(basename $ria_path)
+ln -s "../$pt1/$pt2" data
+
+EOT
+
 # if we get here, we are happy
 echo SUCCESS
