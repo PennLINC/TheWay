@@ -166,7 +166,7 @@ echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
 subjects=$(ls output_ria/alias)
-datalad create -D "Collection of BIDS subdatasets" -d merge_ds
+datalad create -D "Collection of BIDS subdatasets" -c text2git -d merge_ds
 cd merge_ds
 for subject in $subjects
 do
