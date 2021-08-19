@@ -56,14 +56,14 @@ cd ${PROJECTROOT}
 # ------------------------------------------------------------------------------
 # Only make a single ria store - we'll send all the subdatasets there
 output_store="ria+file://${PROJECTROOT}/output_ria"
-# Ensure the ria store is created
-datalad create-sibling-ria -s output "${output_store}"
 # and the directory for aliases
 mkdir -p ${PROJECTROOT}/output_ria/alias
 # Create a source dataset with all analysis components as an analysis access
 # point.
 datalad create -c yoda analysis
 cd analysis
+# Ensure the ria store is created
+datalad create-sibling-ria -s output "${output_store}"
 
 SUBJECTS=$(find ${BIDSINPUT} -maxdepth 1 -type d -name 'sub-*' | xargs -n 1 basename)
 if [ -z "${SUBJECTS}" ]
