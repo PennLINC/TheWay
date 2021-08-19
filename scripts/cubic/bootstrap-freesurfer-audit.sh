@@ -177,8 +177,19 @@ datalad run \
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
+
+# remove tempdir 
+echo TMPDIR TO DELETE
+echo ${BRANCH}
+
+datalad drop -r . --nocheck
+datalad uninstall -r inputs/data
+git annex dead here
+cd ../..
+rm -rf $BRANCH
+
 echo SUCCESS
-# job handler should clean up workspace
+
 EOT
 
 chmod +x code/participant_job.sh
