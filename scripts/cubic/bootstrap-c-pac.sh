@@ -191,8 +191,8 @@ flock $DSLOCKFILE git push outputstore
 # remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
+datalad uninstall -r inputs/data --if-dirty ignore
+datalad drop -r . --nocheck --if-dirty ignore
 git annex dead here
 cd ../..
 rm -rf $BRANCH
