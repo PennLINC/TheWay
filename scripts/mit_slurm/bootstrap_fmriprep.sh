@@ -159,7 +159,7 @@ datalad run \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i containers/.datalad/environments/fmriprep-20-2-3/image \ # FIX!!
+    -i /om4/group/gablab/data/containers/images/bids/bids-fmriprep--20.2.3.sing
     --explicit \
     -o ${subid}_fmriprep-20.2.3.zip \
     -o ${subid}_freesurfer-20.2.3.zip \
@@ -189,7 +189,7 @@ subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 # TODO: fix path to singularity image
 singularity run --cleanenv -B ${PWD} \
-    containers/.datalad/environments/fmriprep-20-2-3/image \ # FIX!!
+    /om4/group/gablab/data/containers/images/bids/bids-fmriprep--20.2.3.sing
     inputs/data \
     prep \
     participant \
