@@ -102,6 +102,7 @@ fi
 
 CONTAINERDS=///repronim/containers
 datalad install -d . --source ${CONTAINERDS}
+datalad get containers/images/bids/bids-fmriprep--20.2.3.sing
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -159,7 +160,7 @@ datalad run \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i /om4/group/gablab/data/containers/images/bids/bids-fmriprep--20.2.3.sing
+    -i containers/images/bids/bids-fmriprep--20.2.3.sing
     --explicit \
     -o ${subid}_fmriprep-20.2.3.zip \
     -o ${subid}_freesurfer-20.2.3.zip \
@@ -187,9 +188,8 @@ cat > code/fmriprep_zip.sh << "EOT"
 set -e -u -x
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
-# TODO: fix path to singularity image
 singularity run --cleanenv -B ${PWD} \
-    /om4/group/gablab/data/containers/images/bids/bids-fmriprep--20.2.3.sing
+    containers/images/bids/bids-fmriprep--20.2.3.sing
     inputs/data \
     prep \
     participant \
