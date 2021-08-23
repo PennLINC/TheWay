@@ -41,9 +41,17 @@ fi
 BIDSINPUT=$1
 if [[ -z ${BIDSINPUT} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "First required argument is an identifier of the BIDS source"
     # exit 1
 fi
+
+TMPDIR=$2
+if [[ -z ${TMPDIR} ]]
+then
+    echo "Second required argument is a path to temporary working directory"
+    # exit 1
+fi
+mkdir -p "${TMPDIR}"
 
 # Is it a directory on the filesystem?
 BIDS_INPUT_METHOD=clone
@@ -111,7 +119,7 @@ pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 # TODO: change to local tempdir assigned by SLURM
-cd ${CBICA_TMPDIR}
+cd ${TMPDIR}
 # OR Run it on a shared network drive
 # cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
@@ -202,7 +210,8 @@ rm -rf prep .git/tmp/wkdir
 EOT
 
 chmod +x code/fmriprep_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+#cp ${FREESURFER_HOME}/license.txt code/license.txt
+cp /om2/user/smeisler/TheWay/scripts/mit_slurm/license.txt code/license.txt #REMOVE THIS LATER
 
 mkdir logs
 echo .SLURM_datalad_lock >> .gitignore
@@ -226,14 +235,14 @@ wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 # SLURM SETUP START - remove or adjust to your needs
 ################################################################################
 env_flags="--export=DSLOCKFILE=${PWD}/.SLURM_datalad_lock"
-echo '#!/bin/bash' > code/srun_calls.sh
+echo '#!/bin/bash' > code/sbatch_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  echo "srun ${env_flags} --job-name=fp${subject} ${eo_args} \
+  echo "sbatch ${env_flags} --job-name=fp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/srun_calls.sh
+  ${dssource} ${pushgitremote} ${subject} " >> code/sbatch_calls.sh
 done
 datalad save -m "SLURM submission setup" code/ .gitignore
 
