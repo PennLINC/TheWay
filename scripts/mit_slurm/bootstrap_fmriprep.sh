@@ -70,7 +70,7 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 
 # Create a source dataset with all analysis components as an analysis access
 # point.
-datalad create -c yoda analysis 
+datalad create -c yoda analysis
 cd analysis
 
 # create dedicated input and output locations. Results will be pushed into the
@@ -80,18 +80,10 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${BIDSINPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
 if [ -z "${SUBJECTS}" ]
@@ -100,25 +92,8 @@ then
     # exit 1
 fi
 
-set +u
-CONTAINERDS=$2
-set -u
-#if [[ ! -z "${CONTAINERDS}" ]]; then
-cd ${PROJECTROOT}
-datalad clone ${CONTAINERDS} pennlinc-containers
-## Add the containers as a subdataset
-#datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
-# download the image so we don't ddos pmacs
-cd pennlinc-containers
-datalad get -r .
-# get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
-
-cd ${PROJECTROOT}/analysis
-datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
+CONTAINERDS=///repronim/containers
+datalad install -d . --source ${CONTAINERDS}
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -135,6 +110,7 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
+# TODO: change to local tempdir assigned by SLURM
 cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
 # cd /cbica/comp_space/$(basename $HOME)
@@ -170,11 +146,12 @@ datalad get -n "inputs/data/${subid}"
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
 # ------------------------------------------------------------------------------
 # Do the run!
+# TODO: Be sure the actual path to the fmriprep container is correct
 datalad run \
     -i code/fmriprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
+    -i containers/.datalad/environments/fmriprep-20-2-3/image \ # FIX!!
     --explicit \
     -o ${subid}_fmriprep-20.2.3.zip \
     -o ${subid}_freesurfer-20.2.3.zip \
@@ -186,8 +163,8 @@ datalad push --to output-storage
 flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
+datalad uninstall -r --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -202,8 +179,9 @@ cat > code/fmriprep_zip.sh << "EOT"
 set -e -u -x
 subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
+# TODO: fix path to singularity image
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
+    containers/.datalad/environments/fmriprep-20-2-3/image \ # FIX!!
     inputs/data \
     prep \
     participant \
