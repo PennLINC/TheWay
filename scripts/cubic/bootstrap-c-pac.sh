@@ -222,7 +222,7 @@ singularity run --cleanenv \
     --mem_gb 32 \
     --participant_label "$subid"
 
-7z a ../${subid}_c-pac-1.8.1-dev.zip ${subid}_outputs
+7z a ${subid}_c-pac-1.8.1-dev.zip ${subid}_outputs
 rm -rf ${subid}_outputs
 
 EOT
