@@ -61,17 +61,13 @@ cd ${PROJECTROOT}
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
 # Only make a single ria store - we'll send all the subdatasets there
-output_store="ria+file://${PROJECTROOT}/output_ria"
-# and the directory for aliases
-mkdir -p ${PROJECTROOT}/output_ria/alias
+output_store="${PROJECTROOT}/BIDS_DATASETS"
+mkdir -p ${output_store}
 
 # Create a source dataset with all analysis components as an analysis access
 # point.
 datalad create -c yoda analysis
 cd analysis
-
-# Ensure the ria store is created.
-datalad create-sibling-ria --storage-sibling off -s output "${output_store}"
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -83,18 +79,17 @@ echo I\'m in $PWD using `which python`
 export PS4='> '
 set -e -u -x
 
-echo $LSB_JOBID
-
+echo $SLURM_JOB_ID
 # Set up the remotes and get the subject id from the call
-collector_ria="$1"
+collector_dir="$1"
 # make $2 subid/sesid to have session subdatasets ##UNTESTED##
 subid="$2"
 bidsroot="$3"
 bucket="$4"
 srname="$5"
 
-# change into the cluster-assigned temp directory. Not done by default in LSF
-workdir=/scratch/${LSB_JOBID}
+# change into the cluster-assigned temp directory. Not done by default in SLURM
+workdir=/tmp/${SLURM_JOB_ID}
 mkdir -p ${workdir}
 cd ${workdir}
 
@@ -102,25 +97,24 @@ cd ${workdir}
 datalad create -D "Copy subject $subid" $subid
 cd $subid
 
-# This should only hold git and remote availability
-# because the data is going to s3
-datalad create-sibling-ria --storage off -s output "${collector_ria}"
-
 # Add the s3 output
 git annex initremote "$srname" \
     type=S3 \
     autoenable=true \
     bucket=$bucket \
     encryption=none \
-    exporttree=yes \
     "fileprefix=$subid/" \
-    host=s3.amazonaws.com \
+    host=s3.msi.umn.edu \
     partsize=1GiB \
-    port=80 \
-    "publicurl=https://s3.amazonaws.com/$bucket" \
-    public=no \
-    versioning=yes
+    port=443 \
+    public=no
 
+# This should only hold git and remote availability
+# because the data is going to s3.
+datalad create-sibling \
+    --as-common-datasrc fs-bids \
+    -s fs-bids \
+    "${collector_dir}/${subid}"
 
 # Copy the entire input directory into the current dataset
 # and save it as a subdataset.
@@ -163,12 +157,12 @@ datalad save -m "Participant compute job implementation"
 ################################################################################
 # LSF SETUP START - remove or adjust to your needs
 ################################################################################
-echo '#!/bin/bash' > code/bsub_calls.sh
+echo '#!/bin/bash' > code/srun_calls.sh
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=5000]'"
 for subject in ${SUBJECTS}; do
     echo "bsub -J bids${subject} ${eo_args} \
     ${PWD}/code/participant_job.sh \
-    ${output_store} ${subject} ${BIDSINPUT}" >> code/bsub_calls.sh
+    ${output_store} ${subject} ${BIDSINPUT}" >> code/srun_calls.sh
 done
 datalad save -m "LSF submission setup" code/ .gitignore
 
@@ -202,17 +196,9 @@ cp $(find $BIDSINPUT -maxdepth 1 -type f) .
 datalad save -m "Add subdatasets"
 datalad push --to output
 
-ria_path=$(datalad siblings | grep 'output(-' | sed 's/.*\[\(.*\) (git)\]/\1/')
-
 # stop tracking this branch
 datalad drop --nocheck .
 git annex dead here
-
-cd ${ria_path}/../../alias
-pt1=$(basename `dirname $ria_path`)
-pt2=$(basename $ria_path)
-ln -s "../$pt1/$pt2" data
-
 EOT
 
 # if we get here, we are happy
