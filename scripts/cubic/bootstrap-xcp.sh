@@ -118,7 +118,7 @@ cd ${PROJECTROOT}
 #can delete
 #rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.4.sif
 
-CONTAINERDS=~/xcp-abcd-container
+CONTAINERDS=~/xcp-abcd-0-0-4-container
 if [[ ! -z "${CONTAINERDS}" ]]; then
     datalad clone ${CONTAINERDS} pennlinc-containers
 else
