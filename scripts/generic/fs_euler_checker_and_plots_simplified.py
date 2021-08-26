@@ -33,7 +33,7 @@ if not input_zip_dir.exists():
     raise ValueError("Must provide a directory with zip files")
 
 # Set up the working/output directories
-unzip_temp_dir = Path(sys.argv[3])
+unzip_temp_dir = Path("temp")
 unzip_temp_dir.mkdir(exist_ok=True)
 output_dir = Path("csvs")
 output_dir.mkdir(exist_ok=True)
@@ -200,28 +200,35 @@ pd.DataFrame([fs_audit]).to_csv(str(output_dir / (subid + "audit.csv")))
 
 
 # Do the plotting!
+t1w_pat = re.compile("((?!space-).)*T1w.nii.gz")
+
+# Exract the t1w from the zip file
 with zipfile.ZipFile(str(fmriprep_zip), 'r') as zip_ref_fmri:
+    zip_contents = zip_ref_fmri.namelist()
+    t1_candidates = [
+        fname for fname in zip_contents if re.match(t1w_pat, fname)]
+    if not t1_candidates:
+        raise Exception("No native-space T1w images were found")
+    if len(t1_candidates) > 1:
+        raise Exception("Too many possible T1w candidates found")
+    t1w_zip_path = t1_candidates[0]
+    orig_filename = Path(t1w_zip_path).name
+    external_path = unzip_temp_dir / orig_filename
 
+    # copy it out to the tempdir
+    with external_path.open("wb") as t1w_destf:
+        with zip_ref_fmri.open(t1w_zip_path, "r") as t1w_srcf:
+            shutil.copyfileobj(t1w_srcf, t1w_destf)
 
-path_t1w = 'fmriprep/'+ subid + '/ses-PNC1/anat/%s_ses-PNC1_acq-refaced_desc-preproc_T1w.nii.gz'%(subid)
-basename = '%s_ses-PNC1_acq-refaced_desc-preproc_T1w.nii.gz'%(subid)
+image_t1w = nim.load_img(str(external_path))
 
-path_unzip_t1w = unzip_temp_dir +'/%s_ses-PNC1_acq-refaced_desc-preproc_T1w.nii.gz'%(subid)
-
-with zipfile.ZipFile(input_zip_dir + '/' + subid + '_fmriprep-20.2.3.zip', 'r') as zip_ref_fmri:
-    with zip_ref_fmri.open(path_t1w) as zf, open(os.path.join(unzip_temp_dir,os.path.basename(basename)),'wb') as f:
-        #listOfFileNames = zip_ref_fmri.namelist()
-        shutil.copyfileobj(zf,f)
-
-    #zip_ref_fmri.extract(member=path_t1w)
-
-# test one single subject
-# path_unzip_t1w = unzip_temp_dir + '/fmriprep/' + subid + '/ses-PNC1/anat/sub-192413932_ses-PNC1_acq-refaced_desc-preproc_T1w.nii.gz'
-image_t1w = nim.load_img(path_unzip_t1w)
-
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,15))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
 nip.plot_img(image_t1w, axes=ax, black_bg=True,
-             title="%s-%d"%(subid,
-                 fs_audit['AverageEulerNumber']),cmap="gray",draw_cross=False)
-fig.savefig(png_path)
+             title="Euler=%d: %s" % (
+                 fs_audit['AverageEulerNumber'], subid),
+             cmap="gray", draw_cross=False)
+png_fname = "%05d" % fs_audit['AverageEulerNumber'] + "_" \
+    + orig_filename.replace(".gz", "").replace(".nii", ".png")
+
+fig.savefig(str(output_dir / png_fname))
 
