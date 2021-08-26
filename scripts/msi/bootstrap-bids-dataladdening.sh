@@ -6,6 +6,8 @@
 ## Ensure the environment is ready to bootstrap the analysis workspace
 # Check that we have conda installed
 #conda activate
+source /home/umii/hendr522/SW/miniconda3/etc/profile.d/conda.sh
+conda activate datalad_and_nda
 #if [ $? -gt 0 ]; then
 #    echo "Error initializing conda. Exiting"
 #    exit $?
@@ -72,8 +74,25 @@ cd analysis
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
+#SBATCH -J qsiprep
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=20gb
+#SBATCH -t 24:00:00
+#SBATCH -p small,amdsmall
+#SBATCH -A feczk001
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=hendr522@umn.edu
+
 # Set up the correct conda environment
+source /home/umii/hendr522/SW/miniconda3/etc/profile.d/conda.sh
+conda activate datalad_and_nda
 echo I\'m in $PWD using `which python`
+
+# set up AWS credentials as environment variables
+export AWS_ACCESS_KEY_ID=`cat ${HOME}/.s3cfg | grep access_key | awk '{print $3}'`
+export AWS_SECRET_ACCESS_KEY=`cat ${HOME}/.s3cfg | grep secret_key | awk '{print $3}'`
 
 # fail whenever something is fishy, use -x to get verbose logfiles
 export PS4='> '
@@ -97,6 +116,7 @@ cd ${workdir}
 datalad create -D "Copy subject $subid" $subid
 cd $subid
 
+#
 # Add the s3 output
 git annex initremote "$srname" \
     type=S3 \
@@ -112,7 +132,7 @@ git annex initremote "$srname" \
 # This should only hold git and remote availability
 # because the data is going to s3.
 datalad create-sibling \
-    --as-common-datasrc fs-bids \
+    --publish-depends ${srname} \
     -s fs-bids \
     "${collector_dir}/${subid}"
 
@@ -120,54 +140,49 @@ datalad create-sibling \
 # and save it as a subdataset.
 datalad run \
     -m "Copy in ${subid}" \
-    "cp -r ${bidsroot}/${subid}/* ."
-
-ria_path=$(datalad siblings | grep 'output(-' | sed 's/.*\[\(.*\) (git)\]/\1/')
+    "cp -rL ${bidsroot}/${subid}/* ."
 
 # Push the tracking info
-datalad push --to output --data nothing
+datalad push --to fs-bids --data nothing
 # Push to s3
-datalad push --to srname
+datalad push --to $srname
 
 # Cleanup
 datalad drop --nocheck .
 git annex dead here
-
-# Make an alias in the RIA store
-cd ${ria_path}/../../alias
-pt1=$(basename `dirname $ria_path`)
-pt2=$(basename $ria_path)
-ln -s "../$pt1/$pt2" $subid
 
 # cleanup
 rm -rf $workdir
 
 # Announce
 echo SUCCESS
+
 EOT
 
 chmod +x code/participant_job.sh
 
 mkdir logs
-echo .LSF_datalad_lock >> .gitignore
+echo .SLURM_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
-################################################################################
-# LSF SETUP START - remove or adjust to your needs
-################################################################################
-echo '#!/bin/bash' > code/srun_calls.sh
-eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=5000]'"
-for subject in ${SUBJECTS}; do
-    echo "bsub -J bids${subject} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${output_store} ${subject} ${BIDSINPUT}" >> code/srun_calls.sh
-done
-datalad save -m "LSF submission setup" code/ .gitignore
+#TODO add s3info credential dynamically
 
 ################################################################################
-# LSF SETUP END
+# SLURM SETUP START - remove or adjust to your needs
+################################################################################
+echo '#!/bin/bash' > code/srun_calls.sh
+for subject in ${SUBJECTS}; do
+    eo_args="-e ${PWD}/logs/${subject}.err -o ${PWD}/logs/${subject}.out"
+    echo "sbatch -J bids${subject} ${eo_args} \
+    ${PWD}/code/participant_job.sh \
+    ${output_store} ${subject} ${BIDSINPUT} hendr522-dataladdening private-umn-s3" >> code/srun_calls.sh
+done
+datalad save -m "SLURM submission setup" code/ .gitignore
+
+################################################################################
+#  SETUP END
 ################################################################################
 
 
