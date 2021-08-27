@@ -168,17 +168,16 @@ datalad run \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/freesurfer_logs/*${subid}* \
     --explicit \
-    -o ${output_png} \
-    -o ${output_csv} \
+    -o ${CSV_DIR} \
     -m "freesurfer-audit ${subid}" \
-    "python code/fs_euler_checker_and_plots_simplified.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}" 
-    
+    "python code/fs_euler_checker_and_plots_simplified.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}"
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir 
+# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
