@@ -45,17 +45,6 @@ then
     # exit 1
 fi
 
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
-
-
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
@@ -79,18 +68,10 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${BIDSINPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
 if [ -z "${SUBJECTS}" ]
@@ -99,25 +80,11 @@ then
     # exit 1
 fi
 
-set +u
+
 CONTAINERDS=$2
-set -u
-#if [[ ! -z "${CONTAINERDS}" ]]; then
-cd ${PROJECTROOT}
-datalad clone ${CONTAINERDS} pennlinc-containers
-## Add the containers as a subdataset
-#datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
-# download the image so we don't ddos pmacs
-cd pennlinc-containers
-datalad get -r .
-# get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
 
 cd ${PROJECTROOT}/analysis
-datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
+datalad install -d . --source ${CONTAINERDS} pennlinc-containers
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -212,7 +179,7 @@ cat > code/mimosa_zip.sh << "EOT"
 set -e -u -x
 
 subid="$1"
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir mimosa
 singularity run --cleanenv -B ${PWD} \
     pennlinc-containers/.datalad/environments/mimosa-0-1-0/image \
     inputs/data \
@@ -233,7 +200,6 @@ rm -rf mimosa
 EOT
 
 chmod +x code/mimosa_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
 echo .LSF_datalad_lock >> .gitignore
