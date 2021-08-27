@@ -93,7 +93,7 @@ subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 # cd ${CBICA_TMPDIR}
 
-TMPDIR=${CBIBA_TMPDIR}
+TMPDIR=${CBICA_TMPDIR}
 cd $TMPDIR
 
 # Used for the branch names and the temp dir
