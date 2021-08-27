@@ -231,4 +231,3 @@ png_fname = "%05d" % fs_audit['AverageEulerNumber'] + "_" \
     + orig_filename.replace(".gz", "").replace(".nii", ".png")
 
 fig.savefig(str(output_dir / png_fname))
-
