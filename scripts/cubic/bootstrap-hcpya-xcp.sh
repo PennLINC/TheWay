@@ -126,9 +126,9 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=32G
-#$ -l s_vmem=32G
-#$ -l tmpfree=200G
+#$ -l h_vmem=64G
+#$ -l s_vmem=64G
+#$ -l tmpfree=300G
 #$ -pe threaded 4
 #$ -j y
 # Set up the correct conda environment
@@ -243,6 +243,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
+  sleep 60s
   echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
