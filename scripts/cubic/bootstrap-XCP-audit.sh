@@ -102,7 +102,7 @@ datalad install -d . -r --source ${PROJECTROOT}/xcp_logs inputs/xcp_logs
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '@' -f 5 )
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
