@@ -175,7 +175,7 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-sleep $[ ( $RANDOM % 600 ) + 1 ]s
+# sleep $[ ( $RANDOM % 120 ) + 1 ]s
 datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
@@ -246,7 +246,7 @@ for subject in ${SUBJECTS}; do
   echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
-  echo "sleep 60" >> code/qsub_calls.sh
+  echo "sleep 120" >> code/qsub_calls.sh
 done
 chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
