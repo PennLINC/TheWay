@@ -248,6 +248,7 @@ for subject in ${SUBJECTS}; do
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
   echo "sleep 60" >> code/qsub_calls.sh
 done
+chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
 
 ################################################################################
@@ -277,3 +278,7 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
+
+#submit the jobs as a job 
+#chmod a+x code/qsub_calls.sh
+#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/qsub_calls.sh
