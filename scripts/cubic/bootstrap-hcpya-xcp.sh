@@ -126,10 +126,10 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=64G
-#$ -l s_vmem=64G
-#$ -l tmpfree=300G
-#$ -pe threaded 4
+#$ -l h_vmem=84G
+#$ -l s_vmem=84G
+#$ -l tmpfree=500G
+#$ -pe threaded 20
 #$ -j y
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -180,11 +180,14 @@ datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*LR.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*RL.nii.gz* \    
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement_AbsoluteRMS.txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement_Regressors.txt* \    
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*WM.txt* \ 
     -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
     --explicit \
     -o ${subid}_xcp-0-0-4.zip \
