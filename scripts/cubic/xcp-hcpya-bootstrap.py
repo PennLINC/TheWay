@@ -30,10 +30,10 @@ creating the regression json, and creating dummy transforms. These inputs were t
 singularity run --cleanenv -B ${PWD} ~/xcp_hcp/xcp-abcd-0.0.4.sif fmriprepdir/ xcp/ participant --cifti --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label sub-$SUBJECT -p 36P -f 100 --omp-nthreads 4 --nthreads 4
 All subjects ran successfully.
 """
-fdirs = ["RL","LR"]
-orig_tasks = ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]
-# fdirs = ["RL"]
-# orig_tasks = ["REST1"]
+# fdirs = ["RL","LR"]
+# orig_tasks = ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]
+fdirs = ["RL"]
+orig_tasks = ["WM"]
 os.system('cp code/dataset_description.json {0}/dataset_description.json'.format(outdir))
 #put this directly in here
 tasklist = []
