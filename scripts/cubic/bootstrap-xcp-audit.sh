@@ -159,14 +159,14 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/XCP_zip_audit.py \
+    -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/inputs/data/${subid} \
     -i inputs/xcp_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
     -m "xcp-audit ${subid}" \
-    "python code/XCP_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} xcp"
+    "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} xcp"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
