@@ -182,8 +182,8 @@ datalad run \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*LR.nii.gz* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*RL.nii.gz* \    
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement_AbsoluteRMS.txt* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement_Regressors.txt* \    
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_AbsoluteRMS.txt \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_Regressors.txt \    
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
