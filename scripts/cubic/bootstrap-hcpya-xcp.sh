@@ -189,6 +189,7 @@ datalad run \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*WM.txt* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/brainmask_fs.2.nii.gz \
     --explicit \
     -o ${subid}_xcp-0-0-4.zip \
     -m "xcp-abcd-run ${subid}" \
