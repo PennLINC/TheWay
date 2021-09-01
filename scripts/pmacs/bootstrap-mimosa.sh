@@ -147,7 +147,7 @@ datalad get -n "inputs/data/${subid}"
 datalad run \
     -i code/mimosa_zip.sh \
     -i inputs/data/${subid} \
-    -i inputs/data/*json \
+    -i inputs/data/dataset_description.json \
     -i pennlinc-containers/.datalad/environments/mimosa-0-1-0/image \
     --explicit \
     -o ${subid}_mimosa-0.1.0.zip \
@@ -186,7 +186,6 @@ singularity run --cleanenv -B ${PWD} \
     mimosa \
     participant \
     --participant_label "$subid" \
-    --session $ses \
     --strip mass \
     --n4 \
     --register \
@@ -293,7 +292,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
 for subject in ${SUBJECTS}; do
-  echo "bsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  echo "bsub -cwd -N fp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/bsub_calls.sh
 done
@@ -311,10 +310,7 @@ datalad push --to output
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
-fi
+datalad uninstall -r --nocheck inputs/data
 
 # Add an alias to the data in the RIA store
 RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
