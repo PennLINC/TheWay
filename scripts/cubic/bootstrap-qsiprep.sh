@@ -195,7 +195,7 @@ datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir 
+# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
@@ -223,6 +223,7 @@ singularity run --cleanenv -B ${PWD} \
     inputs/data \
     prep \
     participant \
+    -v -v \
     -w ${PWD}/.git/wkdir \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \

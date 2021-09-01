@@ -215,6 +215,7 @@ EOT
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+
 cat >> code/merge_outputs.sh << "EOT"
 
 # The following should be pasted into the merge_outputs.sh script
@@ -280,6 +281,7 @@ git annex dead here
 datalad push --data nothing
 echo SUCCESS
 EOT
+
 
 
 ################################################################################
