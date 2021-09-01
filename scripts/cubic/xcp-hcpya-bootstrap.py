@@ -33,7 +33,7 @@ All subjects ran successfully.
 fdirs = ["RL","LR"]
 orig_tasks = ["REST1","REST2","WM","MOTOR","GAMBLING","EMOTION","LANGUAGE","SOCIAL"]
 # fdirs = ["RL"]
-# orig_tasks = ["REST1"]
+# orig_tasks = ["WM"]
 os.system('cp code/dataset_description.json {0}/dataset_description.json'.format(outdir))
 #put this directly in here
 tasklist = []

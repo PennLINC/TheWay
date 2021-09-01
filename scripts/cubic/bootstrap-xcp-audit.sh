@@ -102,7 +102,7 @@ datalad install -d . -r --source ${PROJECTROOT}/xcp_logs inputs/xcp_logs
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
+SUBJECTS=$(find inputs/data/inputs/data/inputs/data -type d -name 'sub-*' | cut -d '@' -f 5| sed 's|^inputs/data/inputs/data/inputs/data/||')
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -159,14 +159,14 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/XCP_zip_audit.py \
+    -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
-    -i inputs/data/inputs/data/${subid} \
+    -i inputs/data/inputs/data/inputs/data/${subid} \
     -i inputs/xcp_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
     -m "xcp-audit ${subid}" \
-    "python code/XCP_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} xcp"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -189,9 +189,9 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/XCP_zip_audit.py
-mv XCP_zip_audit.py code/
-chmod +x code/XCP_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/bootstrap_zip_audit.py
+mv bootstrap_zip_audit.py code/
+chmod +x code/bootstrap_zip_audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
