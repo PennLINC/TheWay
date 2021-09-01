@@ -107,16 +107,13 @@ bidsroot="$3"
 bucket="$4"
 srname="$5"
 
-# change into the cluster-assigned temp directory. Not done by default in SLURM
-workdir=/tmp/${SLURM_JOB_ID}
-mkdir -p ${workdir}
-cd ${workdir}
+# change into the directory where the individual subject datasets will go
+cd $collector_dir
 
 # New dataset to house this subject
 datalad create -D "Copy subject $subid" $subid
 cd $subid
 
-#
 # Add the s3 output
 git annex initremote "$srname" \
     type=S3 \
@@ -129,30 +126,17 @@ git annex initremote "$srname" \
     port=443 \
     public=no
 
-# This should only hold git and remote availability
-# because the data is going to s3.
-datalad create-sibling \
-    --publish-depends ${srname} \
-    -s fs-bids \
-    "${collector_dir}/${subid}"
-
 # Copy the entire input directory into the current dataset
 # and save it as a subdataset.
 datalad run \
     -m "Copy in ${subid}" \
     "cp -rL ${bidsroot}/${subid}/* ."
 
-# Push the tracking info
-datalad push --to fs-bids --data nothing
 # Push to s3
 datalad push --to $srname
 
 # Cleanup
-datalad drop --nocheck .
-git annex dead here
-
-# cleanup
-rm -rf $workdir
+datalad drop .
 
 # Announce
 echo SUCCESS
