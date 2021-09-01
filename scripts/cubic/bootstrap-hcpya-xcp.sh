@@ -126,10 +126,10 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=32G
-#$ -l s_vmem=32G
-#$ -l tmpfree=200G
-#$ -pe threaded 4
+#$ -l h_vmem=84G
+#$ -l s_vmem=84G
+#$ -l tmpfree=500G
+#$ -pe threaded 20
 #$ -j y
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -175,17 +175,21 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-sleep $[ ( $RANDOM % 600 ) + 1 ]s
+# sleep $[ ( $RANDOM % 120 ) + 1 ]s
 datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*LR.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*RL.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_AbsoluteRMS.txt \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_Regressors.txt \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*WM.txt* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/brainmask_fs.2.nii.gz \
     --explicit \
     -o ${subid}_xcp-0-0-4.zip \
     -m "xcp-abcd-run ${subid}" \
@@ -246,7 +250,9 @@ for subject in ${SUBJECTS}; do
   echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
+  echo "sleep 120" >> code/qsub_calls.sh
 done
+chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
 
 ################################################################################
@@ -276,3 +282,7 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
+
+#submit the jobs as a job 
+#chmod a+x code/qsub_calls.sh
+#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/qsub_calls.sh
