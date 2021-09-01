@@ -181,23 +181,15 @@ echo "BIDSINPUT=${BIDSINPUT}" >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
-subjects=$(ls output_ria/alias)
-datalad create -D "Collection of BIDS subdatasets" -c text2git -d merge_ds
-cd merge_ds
+cd $output_store
+subjects=$(find . -maxdepth 1 -type d -name 'sub-')
+datalad create -D "Collection of BIDS subdatasets" -c text2git -d BIDS
+cd BIDS
 for subject in $subjects
 do
-    datalad clone -d . ${output_store}"#~${subject}" $subject
+    datalad clone -d . ${output_store}/${subject} $subject
 done
-datalad create-sibling-ria -s output "${output_store}"
-
-# Copy the non-subject data into here
-cp $(find $BIDSINPUT -maxdepth 1 -type f) .
-datalad save -m "Add subdatasets"
-datalad push --to output
-
-# stop tracking this branch
-datalad drop --nocheck .
-git annex dead here
+datalad save -m "added subject data"
 EOT
 
 # if we get here, we are happy
