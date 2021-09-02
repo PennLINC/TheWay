@@ -275,6 +275,48 @@ echo SUCCESS
 
 EOT
 
+##### concat_outputs.sh START ####
+
+cat > code/concat_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+
+echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
+    >> code/concat_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
+
+cat >> code/concat_outputs.sh << "EOT"
+
+# set up concat_ds and run concatenator on it 
+cd ~/testing
+datalad clone ria+file:///cbica/projects/RBC/production/PNC/fmriprep-audit/output_ria#~data concat_ds
+cd concat_ds/code
+rm concatenator.*
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+cd ~/testing/concat_ds
+datalad save -m "added concatenator script"
+datalad run -i 'csvs/*' -o '~/testing/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ~/testing/concat_ds/csvs ~/testing/PNC_FMRIPREP_AUDIT.csv"
+
+# copy report to a directory that isn't getting deleted
+#cp ~/testing/concat_ds/group_report.csv ~/testing/pnc_exemplar_new_fmriprep_audit.csv
+
+datalad save -m "generated report"
+# push changes
+datalad push
+
+# remove concat_ds
+git annex dead here
+cd ~/testing
+chmod +w -R concat_ds
+rm -rf concat_ds
+
+echo SUCCESS
+
+EOT
+
+#### concat_output.sh END ####
+
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
@@ -302,6 +344,11 @@ datalad uninstall -r --nocheck inputs/data
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS
