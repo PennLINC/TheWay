@@ -126,10 +126,10 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=84G
-#$ -l s_vmem=84G
-#$ -l tmpfree=500G
-#$ -pe threaded 20
+#$ -l h_vmem=124G
+#$ -l s_vmem=124G
+#$ -l tmpfree=1000G
+#$ -pe threaded 40
 #$ -j y
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -250,7 +250,7 @@ for subject in ${SUBJECTS}; do
   echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
-  echo "sleep 120" >> code/qsub_calls.sh
+  echo "sleep 600" >> code/qsub_calls.sh
 done
 chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
