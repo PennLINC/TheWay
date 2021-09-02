@@ -175,7 +175,6 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-# sleep $[ ( $RANDOM % 120 ) + 1 ]s
 datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
