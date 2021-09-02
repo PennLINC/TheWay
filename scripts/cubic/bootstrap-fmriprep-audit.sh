@@ -296,7 +296,7 @@ rm concatenator.*
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
 cd concat_ds
 datalad save -m "added concatenator script"
-datalad run -i 'csvs/*' -o '${CBICA_TMPDIR}/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ${CBICA_TMPDIR}/concat_ds/csvs ${PROJECTROOT}/PNC_FMRIPREP_AUDIT.csv"
+datalad run -i 'csvs/*' -o '${CBICA_TMPDIR}/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ${CBICA_TMPDIR}/concat_ds/csvs ${PROJECTROOT}/FULL_AUDIT.csv"
 
 datalad save -m "generated report"
 # push changes
