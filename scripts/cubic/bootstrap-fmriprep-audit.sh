@@ -283,7 +283,7 @@ set -e -u -x
 EOT
 
 echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
-echo "tmpdir= ${CBICA_TMPDIR}" >> code/concat_outputs.sh
+echo "tmpdir=${CBICA_TMPDIR}" >> code/concat_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
 
 cat >> code/concat_outputs.sh << "EOT"
@@ -294,7 +294,7 @@ datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
 rm concatenator.*
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
-cd concat_ds
+cd ${tmpdir}/concat_ds
 datalad save -m "added concatenator script"
 datalad run -i 'csvs/*' -o '${tmpdir}/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ${tmpdir}/concat_ds/csvs ${PROJECT_ROOT}/FMRIPREP_AUDIT.csv"
 
