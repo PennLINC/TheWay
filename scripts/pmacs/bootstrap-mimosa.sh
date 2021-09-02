@@ -138,8 +138,13 @@ git checkout -b "${BRANCH}"
 # recomputation outside the scope of the original setup
 datalad get -n "inputs/data/${subid}"
 
-# Reomve all subjects we're not working on
+# Remove all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
+
+# (optionally) remove modalities we're not working on
+if [ $# -eq 4 ]; then
+    rm -rf `find . -name $4`
+fi
 
 # ------------------------------------------------------------------------------
 # Do the run!
@@ -148,7 +153,7 @@ datalad run \
     -i code/mimosa_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/dataset_description.json \
-    -i pennlinc-containers/.datalad/environments/mimosa-0-1-0/image \
+    -i pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
     --explicit \
     -o ${subid}_mimosa-0.1.0.zip \
     -m "mimosa:0.1.0 ${subid}" \
@@ -181,11 +186,11 @@ set -e -u -x
 subid="$1"
 mkdir mimosa
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/mimosa-0-1-0/image \
+    pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
     inputs/data \
     mimosa \
     participant \
-    --participant_label "$subid" \
+    --participant_label $(echo $subid | cut -d '-' -f 2) \
     --strip mass \
     --n4 \
     --register \
