@@ -292,7 +292,6 @@ cat >> code/concat_outputs.sh << "EOT"
 cd ${tmpdir}
 datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
-rm concatenator.*
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
 cd ${tmpdir}/concat_ds
 datalad save -m "added concatenator script"
