@@ -167,7 +167,7 @@ datalad run \
     -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
     "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} fmriprep"
-    
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -288,18 +288,15 @@ echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
 
 cat >> code/concat_outputs.sh << "EOT"
 
-# set up concat_ds and run concatenator on it 
-cd ~/testing
-datalad clone ria+file:///cbica/projects/RBC/production/PNC/fmriprep-audit/output_ria#~data concat_ds
+# set up concat_ds and run concatenator on it
+cd ${CBICA_TMPDIR}
+datalad clone ria+file://${PROJECTROOT}/output_ria#~data concat_ds
 cd concat_ds/code
 rm concatenator.*
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
-cd ~/testing/concat_ds
+cd concat_ds
 datalad save -m "added concatenator script"
-datalad run -i 'csvs/*' -o '~/testing/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ~/testing/concat_ds/csvs ~/testing/PNC_FMRIPREP_AUDIT.csv"
-
-# copy report to a directory that isn't getting deleted
-#cp ~/testing/concat_ds/group_report.csv ~/testing/pnc_exemplar_new_fmriprep_audit.csv
+datalad run -i 'csvs/*' -o '${CBICA_TMPDIR}/concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py ${CBICA_TMPDIR}/concat_ds/csvs ${PROJECTROOT}/PNC_FMRIPREP_AUDIT.csv"
 
 datalad save -m "generated report"
 # push changes
@@ -307,7 +304,7 @@ datalad push
 
 # remove concat_ds
 git annex dead here
-cd ~/testing
+cd ${CBICA_TMPDIR}
 chmod +w -R concat_ds
 rm -rf concat_ds
 
