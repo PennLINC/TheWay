@@ -141,23 +141,31 @@ datalad get -n "inputs/data/${subid}"
 # Remove all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
 
-# (optionally) remove modalities we're not working on
-if [ $# -eq 4 ]; then
-    rm -rf `find . -name $4`
-fi
 
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad run \
-    -i code/mimosa_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/dataset_description.json \
-    -i pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
-    --explicit \
-    -o ${subid}_mimosa-0.1.0.zip \
-    -m "mimosa:0.1.0 ${subid}" \
-    "bash ./code/mimosa_zip.sh ${subid}"
+if [ $# -eq 4 ]; then
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        --explicit \
+        -o ${subid}_mimosa-0.2.0.zip \
+        -m "mimosa:0.2.0 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid} ${4}"
+else
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        --explicit \
+        -o ${subid}_mimosa-0.2.0.zip \
+        -m "mimosa:0.2.0 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid}"
+fi
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -185,20 +193,40 @@ set -e -u -x
 
 subid="$1"
 mkdir mimosa
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
-    inputs/data \
-    mimosa \
-    participant \
-    --participant_label $(echo $subid | cut -d '-' -f 2) \
-    --strip mass \
-    --n4 \
-    --register \
-    --whitestripe \
-    --thresh 0.25 \
-    --debug
 
-7z a ${subid}_mimosa-0.1.0.zip mimosa
+if [ $# -eq 2 ]; then
+    filterfile=${PWD}/${subid}_filter.json
+    echo $2 > $filterfile
+
+    singularity run --cleanenv -B ${PWD} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --bids-filter-file $filterfile \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug
+else
+    singularity run --cleanenv -B ${PWD} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug
+fi
+
+7z a ${subid}_mimosa-0.2.0.zip mimosa
 rm -rf mimosa
 
 EOT
@@ -297,9 +325,19 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
 for subject in ${SUBJECTS}; do
-  echo "bsub -cwd -N fp${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/bsub_calls.sh
+  if [ $# -eq 4 ]; then
+    # if we get a 4th arg, assume it is a space-separated list of paths to filter files
+    for filterfile in $4; do
+        echo "bsub -cwd -N fp${subject} ${eo_args} \
+        ${PWD}/code/participant_job.sh \
+        ${dssource} ${pushgitremote} ${subject} '$(cat $filterfile | jq -c)' " >> code/bsub_calls.sh
+        # jq -c ensures compact output, removing spaces so they can't be misinterpreted as seperate args
+    done
+  else
+    echo "bsub -cwd -N fp${subject} ${eo_args} \
+    ${PWD}/code/participant_job.sh \
+    ${dssource} ${pushgitremote} ${subject} " >> code/bsub_calls.sh
+  fi
 done
 datalad save -m "LSF submission setup" code/ .gitignore
 
