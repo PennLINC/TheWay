@@ -1,49 +1,74 @@
-## NOTE ##
+#!/bin/bash
 # This workflow is derived from the Datalad Handbook
 
-## Ensure the environment is ready to bootstrap the analysis workspace
-# Check that we have conda installed
-#conda activate
-#if [ $? -gt 0 ]; then
-#    echo "Error initializing conda. Exiting"
-#    exit $?
-#fi
+set -euf -o pipefail
+
+usage() {
+    # Note that errors are sent to STDERR
+    echo "$0 --bids-input ria+file:///path/to/bids  --container-ds /path/or/uri/to/containers" 1>&2
+    echo 1>&2
+    echo "$*" 1>&2
+    exit 1
+}
+
+checkandexit() {
+    if [ $? != 0 ]; then
+        # there was an error
+        echo "$2" 1>&2
+        exit $1
+    fi
+}
+
+BIDSINPUT=""
+CONTAINERDS=""
+FILTERFILE=""
+##### CLI parsing
+while [ "X$1" != "X" ]; do
+    case $1 in
+    -i | --bids-input)
+        shift
+        BIDSINPUT=$1
+        shift
+        ;;
+
+    -c | --container-ds)
+        shift
+        CONTAINERDS=$1
+        shift
+        ;;
+
+    -f | --filter-file)
+        shift
+        FILTERFILE=$1
+        shift
+        ;;
+
+    *)
+        usage "Unrecognized argument: \"$1\""
+        ;;
+    esac
+done
 
 DATALAD_VERSION=$(datalad --version)
-
-if [ $? -gt 0 ]; then
-    echo "No datalad available in your conda environment."
-    echo "Try pip install datalad"
-    # exit 1
-fi
+checkandexit $? "No datalad available in your conda environment; try pip install datalad"
 
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
-set -e -u
-
-
 ## Set up the directory that will contain the necessary directories
 PROJECTROOT=${PWD}/mimosa
-if [[ -d ${PROJECTROOT} ]]
-then
-    echo ${PROJECTROOT} already exists
-    # exit 1
-fi
+test ! -d ${PROJECTROOT}
+checkandexit $? "${PROJECTROOT} already exists"
 
-if [[ ! -w $(dirname ${PROJECTROOT}) ]]
-then
-    echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
-    # exit 1
-fi
-
+test -w $(dirname ${PROJECTROOT})
+checkandexit $? "Unable to write to ${PROJECTROOT}'s parent. Change permissions and retry"
 
 ## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
-then
-    echo "Required argument is an identifier of the BIDS source"
-    # exit 1
-fi
+test ! -z ${BIDSINPUT}
+checkandexit $? "--bids-input is a required argument"
+
+## Check the container DS
+test ! -z ${CONTAINERDS}
+checkandexit $? "--container-ds is a required argument"
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -73,15 +98,9 @@ datalad clone -d . ${BIDSINPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
-if [ -z "${SUBJECTS}" ]
-then
-    echo "No subjects found in input data"
-    # exit 1
-fi
-
-
-CONTAINERDS=$2
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3)
+test ! -z "${SUBJECTS}"
+checkandexit $? "No subjects found in input data"
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${CONTAINERDS} pennlinc-containers
@@ -151,6 +170,7 @@ if [ $# -eq 4 ]; then
         -i inputs/data/${subid} \
         -i inputs/data/dataset_description.json \
         -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        -i $4 \
         --explicit \
         -o ${subid}_mimosa-0.2.0.zip \
         -m "mimosa:0.2.0 ${subid}" \
@@ -195,8 +215,7 @@ subid="$1"
 mkdir mimosa
 
 if [ $# -eq 2 ]; then
-    filterfile=${PWD}/${subid}_filter.json
-    echo $2 > $filterfile
+    filterfile=$2
 
     singularity run --cleanenv -B ${PWD} \
         pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
@@ -315,7 +334,6 @@ echo SUCCESS
 EOT
 
 
-
 ################################################################################
 # LSF SETUP START - remove or adjust to your needs
 ################################################################################
@@ -325,19 +343,9 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
 for subject in ${SUBJECTS}; do
-  if [ $# -eq 4 ]; then
-    # if we get a 4th arg, assume it is a space-separated list of paths to filter files
-    for filterfile in $4; do
-        echo "bsub -cwd -N fp${subject} ${eo_args} \
-        ${PWD}/code/participant_job.sh \
-        ${dssource} ${pushgitremote} ${subject} '$(cat $filterfile | jq -c)' " >> code/bsub_calls.sh
-        # jq -c ensures compact output, removing spaces so they can't be misinterpreted as seperate args
-    done
-  else
     echo "bsub -cwd -N fp${subject} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject} " >> code/bsub_calls.sh
-  fi
+        ${PWD}/code/participant_job.sh \
+        ${dssource} ${pushgitremote} ${subject} ${FILTERFILE} " >> code/bsub_calls.sh
 done
 datalad save -m "LSF submission setup" code/ .gitignore
 
