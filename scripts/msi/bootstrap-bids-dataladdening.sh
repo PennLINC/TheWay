@@ -106,34 +106,47 @@ subid="$2"
 bidsroot="$3"
 bucket="$4"
 srname="$5"
+sesid="$6"
 
 # change into the directory where the individual subject datasets will go
 cd $collector_dir
 
 # New dataset to house this subject
-datalad create -D "Copy subject $subid" $subid
+if [ ! -d ${subid} ]; then
+    echo Create a new dataset for subject $subid
+    datalad create -D "Copy subject $subid" $subid
+
+    # Add the s3 remote to the subject's dataset
+    git annex initremote "$srname" \
+        type=S3 \
+        autoenable=true \
+        bucket=$bucket \
+        encryption=none \
+        "fileprefix=$subid/" \
+        host=s3.msi.umn.edu \
+        partsize=1GiB \
+        port=443 \
+        public=no
+
+fi
 cd $subid
 
-# Add the s3 output
-git annex initremote "$srname" \
-    type=S3 \
-    autoenable=true \
-    bucket=$bucket \
-    encryption=none \
-    "fileprefix=$subid/" \
-    host=s3.msi.umn.edu \
-    partsize=1GiB \
-    port=443 \
-    public=no
+if [ ! -d ${sesid}];
+then
 
-# Copy the entire input directory into the current dataset
-# and save it as a subdataset.
-datalad run \
-    -m "Copy in ${subid}" \
-    "cp -rL ${bidsroot}/${subid}/* ."
+    # Create a subdataset for this session
+    echo Creating subdataset for ${subid}/${sesid}
+    datalad create -d . ${sesid}
+
+    # Copy the entire input directory into the current dataset
+    # and save it as a subdataset.
+    datalad run \
+        -m "Copy in ${subid}/${sesid}" \
+        "cp -rL ${bidsroot}/${subid}/${sesid} ${sesid}"
+fi
 
 # Push to s3
-datalad push --to $srname
+datalad push -r --to $srname
 
 # Cleanup
 datalad drop .
@@ -158,10 +171,13 @@ datalad save -m "Participant compute job implementation"
 ################################################################################
 echo '#!/bin/bash' > code/srun_calls.sh
 for subject in ${SUBJECTS}; do
+    SESSIONS=$(ls  $BIDSINPUT/$subject | grep ses- | cut -d '/' -f 1)
+    for session in ${SESSIONS}; do
     eo_args="-e ${PWD}/logs/${subject}.err -o ${PWD}/logs/${subject}.out"
-    echo "sbatch -J bids${subject} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${output_store} ${subject} ${BIDSINPUT} hendr522-dataladdening private-umn-s3" >> code/srun_calls.sh
+        echo "sbatch -J bids${subject} ${eo_args} \
+        ${PWD}/code/participant_job.sh \
+        ${output_store} ${subject} ${BIDSINPUT} hendr522-dataladdening private-umn-s3 ${session}" >> code/srun_calls.sh
+    done
 done
 datalad save -m "SLURM submission setup" code/ .gitignore
 
