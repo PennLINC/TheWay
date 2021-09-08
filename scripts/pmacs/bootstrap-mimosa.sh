@@ -22,6 +22,7 @@ checkandexit() {
 BIDSINPUT=""
 CONTAINERDS=""
 FILTERFILE=""
+OUTDIR="mimosa"
 ##### CLI parsing
 while [ ${1-X} != "X" ]; do
     case $1 in
@@ -43,6 +44,12 @@ while [ ${1-X} != "X" ]; do
         shift
         ;;
 
+    -o | --outdir)
+        shift
+        OUTDIR=$1
+        shift
+        ;;
+
     *)
         usage "Unrecognized argument: \"$1\""
         ;;
@@ -55,7 +62,7 @@ checkandexit $? "No datalad available in your conda environment; try pip install
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/mimosa
+PROJECTROOT=${PWD}/${OUTDIR}
 test ! -d ${PROJECTROOT}
 checkandexit $? "${PROJECTROOT} already exists"
 
