@@ -23,7 +23,7 @@ BIDSINPUT=""
 CONTAINERDS=""
 FILTERFILE=""
 ##### CLI parsing
-while [ "X$1" != "X" ]; do
+while [ ${1-X} != "X" ]; do
     case $1 in
     -i | --bids-input)
         shift
