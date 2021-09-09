@@ -77,6 +77,10 @@ checkandexit $? "--bids-input is a required argument"
 test ! -z ${CONTAINERDS}
 checkandexit $? "--container-ds is a required argument"
 
+# If we were given a filter file, check that it exists
+test ! -z ${FILTERFILE} || true && test -f ${FILTERFILE}
+checkandexit $? "Was given the filter file: '${FILTERFILE}' but no such file exists"
+
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
@@ -349,10 +353,14 @@ echo "export DSLOCKFILE=${PWD}/.LSF_datalad_lock" >> code/bsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
+if [ ! -z "${FILTERFILE}" ]; then
+    cp ${FILTERFILE} code/filterfile.json
+    FILTERFILE="code/filterfile.json"
+fi
 for subject in ${SUBJECTS}; do
     echo "bsub -cwd -N fp${subject} ${eo_args} \
         ${PWD}/code/participant_job.sh \
-        ${dssource} ${pushgitremote} ${subject} ${FILTERFILE} " >> code/bsub_calls.sh
+        ${dssource} ${pushgitremote} ${subject} ${FILTERFILE}" >> code/bsub_calls.sh
 done
 datalad save -m "LSF submission setup" code/ .gitignore
 
