@@ -222,13 +222,21 @@ cat > code/mimosa_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
+export SINGULARITYENV_CORES=1
+export SINGULARITYENV_ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+export SINGULARITYENV_OMP_NUM_THREADS=1
+export SINGULARITYENV_OMP_THREAD_LIMIT=1
+export SINGULARITYENV_MKL_NUM_THREADS=1
+export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
+export SINGULARITYENV_TMPDIR=$TMPDIR
+
 subid="$1"
 mkdir mimosa
 
 if [ $# -eq 2 ]; then
     filterfile=$2
 
-    singularity run --cleanenv -B ${PWD} \
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
         pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
         inputs/data \
         mimosa \
@@ -242,7 +250,7 @@ if [ $# -eq 2 ]; then
         --thresh 0.25 \
         --debug
 else
-    singularity run --cleanenv -B ${PWD} \
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
         pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
         inputs/data \
         mimosa \
