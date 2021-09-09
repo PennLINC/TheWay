@@ -366,7 +366,7 @@ if [ ! -z "${FILTERFILE}" ]; then
     FILTERFILE="code/filterfile.json"
 fi
 for subject in ${SUBJECTS}; do
-    echo "bsub -cwd ${eo_args} \
+    echo "bsub ${eo_args} \
         ${PWD}/code/participant_job.sh \
         ${dssource} ${pushgitremote} ${subject} ${FILTERFILE}" >> code/bsub_calls.sh
 done
