@@ -210,8 +210,8 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
+datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
