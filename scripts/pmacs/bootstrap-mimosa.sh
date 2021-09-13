@@ -1,49 +1,85 @@
-## NOTE ##
+#!/bin/bash
 # This workflow is derived from the Datalad Handbook
 
-## Ensure the environment is ready to bootstrap the analysis workspace
-# Check that we have conda installed
-#conda activate
-#if [ $? -gt 0 ]; then
-#    echo "Error initializing conda. Exiting"
-#    exit $?
-#fi
+set -euf -o pipefail
+
+usage() {
+    # Note that errors are sent to STDERR
+    echo "$0 --bids-input ria+file:///path/to/bids  --container-ds /path/or/uri/to/containers" 1>&2
+    echo 1>&2
+    echo "$*" 1>&2
+    exit 1
+}
+
+checkandexit() {
+    if [ $? != 0 ]; then
+        # there was an error
+        echo "$2" 1>&2
+        exit $1
+    fi
+}
+
+BIDSINPUT=""
+CONTAINERDS=""
+FILTERFILE=""
+OUTDIR="mimosa"
+##### CLI parsing
+while [ ${1-X} != "X" ]; do
+    case $1 in
+    -i | --bids-input)
+        shift
+        BIDSINPUT=$1
+        shift
+        ;;
+
+    -c | --container-ds)
+        shift
+        CONTAINERDS=$1
+        shift
+        ;;
+
+    -f | --filter-file)
+        shift
+        FILTERFILE=$1
+        shift
+        ;;
+
+    -o | --outdir)
+        shift
+        OUTDIR=$1
+        shift
+        ;;
+
+    *)
+        usage "Unrecognized argument: \"$1\""
+        ;;
+    esac
+done
 
 DATALAD_VERSION=$(datalad --version)
-
-if [ $? -gt 0 ]; then
-    echo "No datalad available in your conda environment."
-    echo "Try pip install datalad"
-    # exit 1
-fi
+checkandexit $? "No datalad available in your conda environment; try pip install datalad"
 
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
-set -e -u
-
-
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/mimosa
-if [[ -d ${PROJECTROOT} ]]
-then
-    echo ${PROJECTROOT} already exists
-    # exit 1
-fi
+PROJECTROOT=${PWD}/${OUTDIR}
+test ! -d ${PROJECTROOT}
+checkandexit $? "${PROJECTROOT} already exists"
 
-if [[ ! -w $(dirname ${PROJECTROOT}) ]]
-then
-    echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
-    # exit 1
-fi
-
+test -w $(dirname ${PROJECTROOT})
+checkandexit $? "Unable to write to ${PROJECTROOT}'s parent. Change permissions and retry"
 
 ## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
-then
-    echo "Required argument is an identifier of the BIDS source"
-    # exit 1
-fi
+test ! -z ${BIDSINPUT}
+checkandexit $? "--bids-input is a required argument"
+
+## Check the container DS
+test ! -z ${CONTAINERDS}
+checkandexit $? "--container-ds is a required argument"
+
+# If we were given a filter file, check that it exists
+test ! -z ${FILTERFILE} || true && test -f ${FILTERFILE}
+checkandexit $? "Was given the filter file: '${FILTERFILE}' but no such file exists"
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -73,15 +109,9 @@ datalad clone -d . ${BIDSINPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
-if [ -z "${SUBJECTS}" ]
-then
-    echo "No subjects found in input data"
-    # exit 1
-fi
-
-
-CONTAINERDS=$2
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3)
+test ! -z "${SUBJECTS}"
+checkandexit $? "No subjects found in input data"
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${CONTAINERDS} pennlinc-containers
@@ -141,23 +171,32 @@ datalad get -n "inputs/data/${subid}"
 # Remove all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
 
-# (optionally) remove modalities we're not working on
-if [ $# -eq 4 ]; then
-    rm -rf `find . -name $4`
-fi
 
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad run \
-    -i code/mimosa_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/dataset_description.json \
-    -i pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
-    --explicit \
-    -o ${subid}_mimosa-0.1.0.zip \
-    -m "mimosa:0.1.0 ${subid}" \
-    "bash ./code/mimosa_zip.sh ${subid}"
+if [ $# -eq 4 ]; then
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        -i $4 \
+        --explicit \
+        -o ${subid}_mimosa-0.2.0.zip \
+        -m "mimosa:0.2.0 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid} ${4}"
+else
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        --explicit \
+        -o ${subid}_mimosa-0.2.0.zip \
+        -m "mimosa:0.2.0 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid}"
+fi
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -183,22 +222,49 @@ cat > code/mimosa_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
+export SINGULARITYENV_CORES=1
+export SINGULARITYENV_ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+export SINGULARITYENV_OMP_NUM_THREADS=1
+export SINGULARITYENV_OMP_THREAD_LIMIT=1
+export SINGULARITYENV_MKL_NUM_THREADS=1
+export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
+export SINGULARITYENV_TMPDIR=$TMPDIR
+
 subid="$1"
 mkdir mimosa
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/mimosa-0-1-1/image \
-    inputs/data \
-    mimosa \
-    participant \
-    --participant_label $(echo $subid | cut -d '-' -f 2) \
-    --strip mass \
-    --n4 \
-    --register \
-    --whitestripe \
-    --thresh 0.25 \
-    --debug
 
-7z a ${subid}_mimosa-0.1.0.zip mimosa
+if [ $# -eq 2 ]; then
+    filterfile=$2
+
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --bids-filter-file $filterfile \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug
+else
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug
+fi
+
+7z a ${subid}_mimosa-0.2.0.zip mimosa
 rm -rf mimosa
 
 EOT
@@ -287,7 +353,6 @@ echo SUCCESS
 EOT
 
 
-
 ################################################################################
 # LSF SETUP START - remove or adjust to your needs
 ################################################################################
@@ -296,10 +361,14 @@ echo "export DSLOCKFILE=${PWD}/.LSF_datalad_lock" >> code/bsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
+if [ ! -z "${FILTERFILE}" ]; then
+    cp ${FILTERFILE} code/filterfile.json
+    FILTERFILE="code/filterfile.json"
+fi
 for subject in ${SUBJECTS}; do
-  echo "bsub -cwd -N fp${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/bsub_calls.sh
+    echo "bsub ${eo_args} \
+        ${PWD}/code/participant_job.sh \
+        ${dssource} ${pushgitremote} ${subject} ${FILTERFILE}" >> code/bsub_calls.sh
 done
 datalad save -m "LSF submission setup" code/ .gitignore
 
