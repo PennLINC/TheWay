@@ -180,21 +180,21 @@ if [ $# -eq 4 ]; then
         -i code/mimosa_zip.sh \
         -i inputs/data/${subid} \
         -i inputs/data/dataset_description.json \
-        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
         -i $4 \
         --explicit \
-        -o ${subid}_mimosa-0.2.0.zip \
-        -m "mimosa:0.2.0 ${subid}" \
+        -o ${subid}_mimosa-0.2.1.zip \
+        -m "mimosa:0.2.1 ${subid}" \
         "bash ./code/mimosa_zip.sh ${subid} ${4}"
 else
     datalad run \
         -i code/mimosa_zip.sh \
         -i inputs/data/${subid} \
         -i inputs/data/dataset_description.json \
-        -i pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
         --explicit \
-        -o ${subid}_mimosa-0.2.0.zip \
-        -m "mimosa:0.2.0 ${subid}" \
+        -o ${subid}_mimosa-0.2.1.zip \
+        -m "mimosa:0.2.1 ${subid}" \
         "bash ./code/mimosa_zip.sh ${subid}"
 fi
 
@@ -231,13 +231,12 @@ export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
 export SINGULARITYENV_TMPDIR=$TMPDIR
 
 subid="$1"
-mkdir mimosa
 
 if [ $# -eq 2 ]; then
     filterfile=$2
 
     singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
-        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
         inputs/data \
         mimosa \
         participant \
@@ -251,7 +250,7 @@ if [ $# -eq 2 ]; then
         --debug
 else
     singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
-        pennlinc-containers/.datalad/environments/mimosa-0-2-0/image \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
         inputs/data \
         mimosa \
         participant \
@@ -264,8 +263,9 @@ else
         --debug
 fi
 
-7z a ${subid}_mimosa-0.2.0.zip mimosa
-rm -rf mimosa
+outdirs=$(ls | grep mimosa_)
+7z a ${subid}_mimosa-0.2.1.zip $outdirs
+rm -rf $outdirs
 
 EOT
 
