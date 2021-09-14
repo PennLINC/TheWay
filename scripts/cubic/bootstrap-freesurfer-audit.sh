@@ -124,10 +124,11 @@ echo ${FS_INPUT_ZIP}
 echo ${FMRI_INPUT_ZIP}
 datalad run \
     -i code/fs_euler_checker_and_plots_simplified.py \
-    -i ${FS_INPUT_ZIP} \
-    -i ${FMRI_INPUT_ZIP} \
+    ${FS_INPUT_ZIP} \
+    ${FMRI_INPUT_ZIP} \
     --explicit \
     -o csvs \
+    -o svg \
     -m "freesurfer-audit ${subid}" \
     "python code/fs_euler_checker_and_plots_simplified.py ${subid} ${ZIPS_DIR}"
 
