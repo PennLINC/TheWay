@@ -1,4 +1,4 @@
-from pathlib import Path
+rom pathlib import Path
 import re
 import pandas as pd
 import subprocess
@@ -14,8 +14,8 @@ import nilearn.plotting as nip
 """
 Get the FreeSurfer statistics and a plot of the T1w image after a
 FMRIPrep/FreeSurfer run.  Must be run from a clone of the analysis directory.
-Expects only one zip per subject.  A one-line CSV and a PNG image are written
-to the csvs/ directory.
+Expects only one zip per subject.  A one-line CSV and a SVG image are written
+to the csvs/ and svg/ directory respectively.
 
 USAGE: fs_euler_checker_and_plots_simplified.py subjectID zips_dir
 
@@ -37,7 +37,8 @@ unzip_temp_dir = Path("temp")
 unzip_temp_dir.mkdir(exist_ok=True)
 output_dir = Path("csvs")
 output_dir.mkdir(exist_ok=True)
-
+output_svg_dir = Path("svg")
+output_svg_dir.mkdir(exist_ok=True)
 # This dictionary holds all the info we're going to collect on this subject
 fs_audit = {'SubjectID': subid}
 
@@ -59,7 +60,7 @@ fmriprep_zip = str(fmriprep_zips[0])
 freesurfer_zip = str(freesurfer_zips[0])
 
 # Unpack the freesurfer zip
-with zipfile.ZipFile(freesurfer_zip, 'r') as zip_ref:
+ith zipfile.ZipFile(freesurfer_zip, 'r') as zip_ref:
     zip_ref.extractall(str(unzip_temp_dir))
 
 # File paths
@@ -101,6 +102,7 @@ def read_euler(euler_file, hemi, info):
     info[hemi + '_NumHoles'] = num_holes
     euler_number = abs(2 - 2 * num_holes)
     info[hemi + '_EulerNumber'] = euler_number
+
     defect_index = 2 * num_holes
     info[hemi + '_DefectIndex'] = defect_index
 
@@ -119,7 +121,6 @@ def read_surf_stats(stats_name, source_id, info, get_measures=False):
         Dictionary containing other collected info about the run
     get_measures: bool
         Should the # Measure lines be parsed and added to info?
-
     Returns: Nothing. the info dict gets keys/values added to it
 
     """
@@ -201,33 +202,33 @@ pd.DataFrame([fs_audit]).to_csv(str(output_dir / (subid + "audit.csv")))
 
 # Do the plotting!
 t1w_pat = re.compile("((?!space-).)*T1w.nii.gz")
+t1w_svg = re.compile("((?!space-).)*reconall_T1w.svg")
 
 # Exract the t1w from the zip file
 with zipfile.ZipFile(str(fmriprep_zip), 'r') as zip_ref_fmri:
     zip_contents = zip_ref_fmri.namelist()
-    t1_candidates = [
-        fname for fname in zip_contents if re.match(t1w_pat, fname)]
-    if not t1_candidates:
-        raise Exception("No native-space T1w images were found")
-    if len(t1_candidates) > 1:
-        raise Exception("Too many possible T1w candidates found")
-    t1w_zip_path = t1_candidates[0]
-    orig_filename = Path(t1w_zip_path).name
-    external_path = unzip_temp_dir / orig_filename
 
-    # copy it out to the tempdir
-    with external_path.open("wb") as t1w_destf:
-        with zip_ref_fmri.open(t1w_zip_path, "r") as t1w_srcf:
-            shutil.copyfileobj(t1w_srcf, t1w_destf)
+    t1_svg_candidates = [
+        fname for fname in zip_contents if re.match(t1w_svg, fname)]
 
-image_t1w = nim.load_img(str(external_path))
+    if not t1_svg_candidates:
+        raise Exception("No native-space T1w svgs were found")
+    if len(t1_svg_candidates) > 1:
+        raise Exception("Too many possible T1w svgs were found")
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
-nip.plot_img(image_t1w, axes=ax, black_bg=True,
-             title="Euler=%d: %s" % (
-                 fs_audit['AverageEulerNumber'], subid),
-             cmap="gray", draw_cross=False)
-png_fname = "%05d" % fs_audit['AverageEulerNumber'] + "_" \
-    + orig_filename.replace(".gz", "").replace(".nii", ".png")
+    t1w_svg_path = t1_svg_candidates[0]
+    svg_orig_filename = Path(t1w_svg_path).name
+    svg_orig_path = str(Path(t1w_svg_path))
+    svg_external_path = unzip_temp_dir /  svg_orig_path
 
-fig.savefig(str(output_dir / png_fname))
+
+    svg_fname = "%05d" % fs_audit['AverageEulerNumber'] + "_" \
+        + svg_orig_filename
+
+    svg_result_path = output_svg_dir / svg_fname
+
+    # copy svg file to result directory
+    with zip_ref_fmri.open(t1w_svg_path, "r") as t1w_svg_srcf:
+        with svg_result_path.open('wb+') as t1w_svg_destf:
+            shutil.copyfileobj(t1w_svg_srcf, t1w_svg_destf)
+                              
