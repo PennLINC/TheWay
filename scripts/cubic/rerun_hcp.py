@@ -3,6 +3,8 @@ import numpy as np
 import os
 import glob
 import subprocess
+
+os.chdir('/cbica/projects/hcpya/xcp/analysis/code')
 df = pd.read_csv('qsub_calls.sh').rename(columns={'#!/bin/bash':'call'})
 
 subjects = np.zeros((df.shape[0]))
@@ -33,3 +35,4 @@ df['ran'] = ran.astype(bool)
 for line in df.iterrows():
     if line[1].ran == True:continue
     else: os.system( line[1].call)
+#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/rerun.py
