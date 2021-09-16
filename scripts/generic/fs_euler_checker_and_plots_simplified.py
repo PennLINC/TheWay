@@ -1,4 +1,4 @@
-rom pathlib import Path
+from pathlib import Path
 import re
 import pandas as pd
 import subprocess
