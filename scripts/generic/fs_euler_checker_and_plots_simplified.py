@@ -60,7 +60,7 @@ fmriprep_zip = str(fmriprep_zips[0])
 freesurfer_zip = str(freesurfer_zips[0])
 
 # Unpack the freesurfer zip
-ith zipfile.ZipFile(freesurfer_zip, 'r') as zip_ref:
+with zipfile.ZipFile(freesurfer_zip, 'r') as zip_ref:
     zip_ref.extractall(str(unzip_temp_dir))
 
 # File paths
