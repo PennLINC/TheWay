@@ -36,4 +36,4 @@ df['ran'] = ran.astype(bool)
 for line in df.iterrows():
     if line[1].ran == True:continue
     else: os.system( line[1].call)
-#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/rerun.py
+#qsub -l h_vmem=4G,s_vmem=4G -N rerunhcp -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs python code/rerun.py
