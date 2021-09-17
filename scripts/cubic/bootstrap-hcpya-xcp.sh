@@ -198,12 +198,11 @@ datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir 
+# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-
+datalad uninstall --nocheck --if-dirty ignore -r inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
