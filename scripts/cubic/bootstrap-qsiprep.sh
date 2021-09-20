@@ -217,14 +217,14 @@ set -e -u -x
 
 subid="$1"
 
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir -p ${PWD}/.git/tmp/wkdir
 singularity run --cleanenv -B ${PWD} \
     pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     inputs/data \
     prep \
     participant \
     -v -v \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wkdir \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \
