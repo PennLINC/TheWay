@@ -206,7 +206,7 @@ cd inputs/data
 7z x ${subid}_qsiprep-0.14.2.zip
 cd $wd
 
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir -p ${PWD}/.git/tmp/wkdir
 singularity run \
     --cleanenv --env DIPY_HOME=/home/qsiprep/.dipy -B ${PWD} \
     pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
