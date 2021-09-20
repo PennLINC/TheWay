@@ -251,7 +251,7 @@ singularity run --cleanenv -B ${PWD} \
     inputs/data \
     prep \
     participant \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wkdir \
     --n_cpus 1 \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \
