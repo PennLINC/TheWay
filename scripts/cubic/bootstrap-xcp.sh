@@ -236,7 +236,7 @@ cd inputs/data
 7z x ${subid}_fmriprep-20.2.3.zip
 cd $wd
 
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir -p ${PWD}/.git/tmp/wkdir
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
