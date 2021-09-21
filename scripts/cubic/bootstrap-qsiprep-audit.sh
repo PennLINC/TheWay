@@ -152,7 +152,6 @@ echo ${INPUT_ZIP}
 datalad run \
     -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
-    -i inputs/data/inputs/data/${subid} \
     -i inputs/qsiprep_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
