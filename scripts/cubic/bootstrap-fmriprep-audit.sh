@@ -302,9 +302,10 @@ datalad save -m "generated report"
 datalad push
 
 # remove concat_ds
+datalad drop -r . --nocheck
+datalad uninstall -r inputs/data
 git annex dead here
-cd ${tmpdir}
-chmod +w -R concat_ds
+cd ..
 rm -rf concat_ds
 
 echo SUCCESS
