@@ -297,11 +297,14 @@ datalad run -i 'csvs/*' -o '${tmpdir}/concat_ds/group_report.csv' --expand input
 datalad save -m "generated report"
 # push changes
 datalad push
+
 # remove concat_ds
+datalad drop -r . --nocheck
+datalad uninstall -r inputs/data
 git annex dead here
-cd ${tmpdir}
-chmod +w -R concat_ds
+cd ..
 rm -rf concat_ds
+
 echo SUCCESS
 EOT
 
