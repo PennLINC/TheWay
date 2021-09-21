@@ -273,11 +273,14 @@ datalad run -i code/concatenator.py -i csvs/ -o ${PROJECT_ROOT}/concat_ds/group_
 datalad save -m "generated report"
 # push changes
 datalad push
+
 # remove concat_ds
+datalad drop -r . --nocheck
+datalad uninstall -r inputs/data
 git annex dead here
-cd ${PROJECT_ROOT}
-chmod +w -R concat_ds
+cd ..
 rm -rf concat_ds
+
 echo SUCCESS
 
 EOT
