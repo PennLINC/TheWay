@@ -23,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/c-pac-1.8.1-dev
+PROJECTROOT=${PWD}/c-pac-1.8.2-dev
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -218,10 +218,10 @@ datalad run \
     -i code/RBC_pipeline.yml \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
+    -i pennlinc-containers/.datalad/environments/cpac-1-8-2-dev/image \
     --explicit \
-    -o ${subid}_c-pac-1.8.1-dev.zip \
-    -m "C-PAC:1.8.1-dev ${subid}" \
+    -o ${subid}_c-pac-1.8.2-dev.zip \
+    -m "C-PAC:1.8.2-dev ${subid}" \
     "bash ./code/c-pac_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -253,7 +253,7 @@ mkdir -p ${subid}_outputs
 singularity run --cleanenv \
     -B ${PWD} \
     -B ${PWD}/${subid}_outputs:/outputs \
-    pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
+    pennlinc-containers/.datalad/environments/cpac-1-8-2-dev/image \
     inputs/data \
     /outputs \
     participant \
@@ -263,7 +263,7 @@ singularity run --cleanenv \
     --mem_gb 32 \
     --participant_label "$subid"
 
-7z a ${subid}_c-pac-1.8.1-dev.zip ${subid}_outputs
+7z a ${subid}_c-pac-1.8.2-dev.zip ${subid}_outputs
 rm -rf ${subid}_outputs
 
 EOT
