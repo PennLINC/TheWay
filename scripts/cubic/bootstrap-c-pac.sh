@@ -109,6 +109,46 @@ fi
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 
+## The C-PAC pipeline config
+cat > code/RBC_pipeline.yml << "EOT"
+FROM: fx-options
+
+nuisance_corrections: 
+
+  2-nuisance_regression: 
+
+    Regressors:
+      - Name: Regressor-1
+        Bandpass:
+          bottom_frequency: 0.01
+          top_frequency: 0.1
+        CerebrospinalFluid:
+          erode_mask: false
+          extraction_resolution: 2
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+          summary: Mean
+        GlobalSignal:
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+          summary: Mean
+        Motion:
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+        WhiteMatter:
+          erode_mask: false
+          extraction_resolution: 2
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+          summary: Mean
+        PolyOrt: 
+          degree: 2
+EOT
+
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
@@ -175,6 +215,7 @@ datalad get -n "inputs/data/${subid}"
 
 datalad run \
     -i code/c-pac_zip.sh \
+    -i code/RBC_pipeline.yml \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/cpac-1-8-1-dev/image \
@@ -216,7 +257,7 @@ singularity run --cleanenv \
     inputs/data \
     /outputs \
     participant \
-    --preconfig fx-options \
+    --pipeline_file code/RBC_pipeline.yml \
     --skip_bids_validator \
     --n_cpus 4 \
     --mem_gb 32 \
