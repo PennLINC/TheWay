@@ -95,8 +95,8 @@ cd ${PROJECTROOT}/analysis
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=24G
-#$ -l s_vmem=16G
+#$ -l h_vmem=8G
+#$ -l s_vmem=8G
 #$ -l tmpfree=50G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -230,7 +230,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N qsirecon${subject} ${eo_args} \
+  echo "qsub -cwd ${env_flags} -N unpack${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
