@@ -10,8 +10,7 @@
 #fi
 
 # Arguments:
-# 1. xcp bootstrap directory
-
+# 1. xcp bootstrap directory, eg for PNC: ria+file:///cbica/projects/RBC/production/PNC/xcp/output_ria#~data
 
 DATALAD_VERSION=$(datalad --version)
 
@@ -23,40 +22,27 @@ fi
 
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
-##  qsiprep input
-QSIPREPINPUT=$1
-if [[ -z ${QSIPREPINPUT} ]]
+##  XCP input
+# XCPINPUT=$1
+XCPINPUT=/cbica/projects/RBC/production/PNC/xcp/
+if [[ -z ${XCPINPUT} ]]
 then
-    echo "Required argument is an identifier of the QSIPrep output zips"
+    echo "Required argument is an identifier of the XCP output zips"
     # exit 1
 fi
 
-if [[ ! -d "${QSIPREPINPUT}/output_ria/alias/data" ]]
+if [[ ! -d "${XCPINPUT}/output_ria/alias/data" ]]
 then
     echo "There must be alias in the output ria store that points to the"
-    echo "QSIPrep output dataset"
+    echo "XCP output dataset"
     # exit 1
 fi
 
-##  qsirecon input
-QSIRECONINPUT=$2
-if [[ -z ${QSIPREPINPUT} ]]
-then
-    echo "Required argument is an identifier of the QSIPrep output zips"
-    # exit 1
-fi
-
-if [[ ! -d "${QSIRECONINPUT}/output_ria/alias/data" ]]
-then
-    echo "There must be alias in the output ria store that points to the"
-    echo "QSIPrep output dataset"
-    # exit 1
-fi
 
 set -e -u
-
+# set +e
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/scalarmap${suffix}
+PROJECTROOT=${PWD}/xcp_derivatives
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -92,34 +78,18 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ria+file://${QSIPREPINPUT}/output_ria#~data inputs/data/prep
+datalad clone -d . ria+file://${XCPINPUT}/output_ria#~data inputs/data
 git commit --amend -m 'Register preprocessed dataset as a subdataset'
-datalad clone -d . ria+file://${QSIRECONINPUT}/output_ria#~data inputs/data/recon
-# amend the previous commit with a nicer commit message
-git commit --amend -m 'Register recon dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data/recon -name '*.zip' | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
+
+SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
 fi
 
-cd ${PROJECTROOT}
-
-CONTAINERDS=$3
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-fi
-
 cd ${PROJECTROOT}/analysis
-datalad install  -d . --source ${PROJECTROOT}/pennlinc-containers
-
-mkdir MNI
-cp $4 MNI/template.nii.gz
-# Force this into git because it's small
-git annex add --force-small MNI/template.nii.gz
-datalad save -m "Added $4 as the template" MNI/template.nii.gz
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -141,9 +111,9 @@ pushgitremote="$2"
 subid="$3"
 
 # change into the cluster-assigned temp directory. Not done by default in SGE
-# cd ${CBICA_TMPDIR}
+cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-cd /cbica/comp_space/$(basename $HOME)
+# cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
@@ -182,20 +152,15 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad get -r pennlinc-containers
 datalad get -n -r inputs/data
-PREP_ZIP=$(ls inputs/data/prep/${subid}_qsiprep*.zip | cut -d '@' -f 1 || true)
-RECON_ZIP=$(ls inputs/data/recon/${subid}_qsi*.zip | cut -d '@' -f 1 || true)
 
 datalad run \
-    -i code/warp_scalars.sh \
-    -i MNI/template.nii.gz \
-    -i inputs/data/prep/${subid}*qsiprep*.zip \
-    -i inputs/data/recon/${subid}*qsirecon*.zip \
+    -i code/unpack.sh \
+    -i inputs/data/${subid}*xcp*.zip \
     --explicit \
-    -o MNI \
-    -m "transform ${subid}" \
-    "bash ./code/warp_scalars.sh ${subid}"
+    -o outputs \
+    -m "unpack ${subid}" \
+    "bash ./code/unpack.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -221,43 +186,20 @@ EOT
 chmod +x code/participant_job.sh
 
 
-cat > code/warp_scalars.sh << "EOT"
+cat > code/unpack.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
 subid="$1"
 wd=${PWD}
 
-cd inputs/data/prep
-7z x ${subid}_qsiprep-0.14.2.zip
-cd ../recon
-7z x ${subid}_qsirecon-*.zip
+cd inputs/data
+7z x ${subid}_xcp-0-0-4.zip 
 cd $wd
-
-to_warp=$(find inputs/data/recon/qsirecon -name '*scalar.nii.gz' \
-	    -o -name '*OD_*' -o -name '*ICVF_*' -o -name '*ISOVF_*'\
-	    -o -name '*MAPMRI.nii.gz')
-trf=$(find inputs/data/prep/qsiprep -name '*from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5')
-
-for scalar in ${to_warp}
-do
-
-    outfile=MNI/$(basename $scalar | sed 's/T1w/MNI/g')
-    singularity exec \
-    --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
-    antsApplyTransforms \
-        -d 3 \
-	-t ${trf} \
-	-i ${scalar} \
-	-o ${outfile} \
-	-r MNI/template.nii.gz \
-	--interpolation NearestNeighbor
-done
 
 EOT
 
-chmod +x code/warp_scalars.sh
+chmod +x code/unpack.sh
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
@@ -321,4 +263,3 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
-
