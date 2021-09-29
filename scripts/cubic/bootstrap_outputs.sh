@@ -152,7 +152,7 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad get -n -r inputs/data
+datalad get -n -r  -R 1 inputs/data
 
 datalad run \
     -i code/unpack.sh \
