@@ -128,7 +128,7 @@ datalad clone "${dssource}" ds
 
 # all following actions are performed in the context of the superdataset
 cd ds
-
+mkdir outputs
 # in order to avoid accumulation temporary git-annex availability information
 # and to avoid a syncronization bottleneck by having to consolidate the
 # git-annex branch across jobs, we will only push the main tracking branch
@@ -193,7 +193,7 @@ set -e -u -x
 subid="$1"
 wd=${PWD}
 
-mv inputs/data/${subid}_xcp-0-0-4.zip ouputs/
+mv inputs/data/${subid}_xcp-0-0-4.zip outputs/
 cd outputs
 7z x ${subid}_xcp-0-0-4.zip
 cd $wd
