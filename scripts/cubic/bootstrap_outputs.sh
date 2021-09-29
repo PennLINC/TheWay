@@ -193,10 +193,8 @@ set -e -u -x
 subid="$1"
 wd=${PWD}
 
-inputs/data/${subid}_xcp-0-0-4.zip
-# mv inputs/data/${subid}_xcp-0-0-4.zip outputs/
-# cd outputs
-# 7z x ${subid}_xcp-0-0-4.zip
+7z x inputs/data/${subid}_xcp-0-0-4.zip
+mv xcp_abcd/** outputs/
 cd $wd
 
 EOT
