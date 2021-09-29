@@ -90,7 +90,7 @@ then
 fi
 
 cd ${PROJECTROOT}/analysis
-
+mkdir outputs
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
@@ -193,8 +193,9 @@ set -e -u -x
 subid="$1"
 wd=${PWD}
 
-cd inputs/data
-7z x ${subid}_xcp-0-0-4.zip 
+mv inputs/data/${subid}_xcp-0-0-4.zip ouputs/
+cd outputs
+7z x ${subid}_xcp-0-0-4.zip
 cd $wd
 
 EOT
