@@ -117,6 +117,12 @@ pipeline_setup:
 
   pipeline_name: RBC
 
+functional_preproc:
+
+  despiking:
+
+    run: [On]
+
 nuisance_corrections: 
 
   2-nuisance_regression: 
