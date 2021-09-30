@@ -190,6 +190,25 @@ nuisance_corrections:
           summary: Mean
         PolyOrt: 
           degree: 2
+
+timeseries_extraction:
+
+  run: On
+
+  tse_roi_paths:
+    /cpac_templates/aal_mask_pad.nii.gz: Avg, PearsonCorr, PartialCorr
+    /cpac_templates/CC200.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/AAL_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/HarvardOxfordcort-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/HarvardOxfordsub-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Schaefer1000_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Schaefer200_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Schaefer300_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Schaefer400_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Yeo-17-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Yeo-17_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Yeo-7-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Yeo-7_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
 EOT
 
 ## the actual compute job specification
