@@ -113,7 +113,9 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/RBC_pipeline.yml << "EOT"
 FROM: fx-options
 
+pipeline_setup:
 
+  pipeline_name: RBC
 
 nuisance_corrections: 
 
