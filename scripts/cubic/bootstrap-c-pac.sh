@@ -113,12 +113,14 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/RBC_pipeline.yml << "EOT"
 FROM: fx-options
 
+
+
 nuisance_corrections: 
 
   2-nuisance_regression: 
 
     Regressors:
-      - Name: Regressor-1
+      - Name: Regressor-with-GSR
         Bandpass:
           bottom_frequency: 0.01
           top_frequency: 0.1
@@ -134,6 +136,39 @@ nuisance_corrections:
           include_delayed_squared: true
           include_squared: true
           summary: Mean
+        Motion:
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+        WhiteMatter:
+          erode_mask: false
+          extraction_resolution: 2
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+          summary: Mean
+        PolyOrt: 
+          degree: 2
+
+      - Name: Regressor-with-aCompCor
+        Bandpass:
+          bottom_frequency: 0.01
+          top_frequency: 0.1
+        CerebrospinalFluid:
+          erode_mask: false
+          extraction_resolution: 2
+          include_delayed: true
+          include_delayed_squared: true
+          include_squared: true
+          summary: Mean
+        aCompCor:
+          summary:
+            method: DetrendPC
+            components: 5
+          tissues:
+            - WhiteMatter
+            - CerebrospinalFluid
+          extraction_resolution: 2
         Motion:
           include_delayed: true
           include_delayed_squared: true
