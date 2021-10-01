@@ -264,7 +264,7 @@ git annex fsck --fast -f output-storage
 set +u
 MISSING=$(git annex find --not --in output-storage)
 
-if [[ ! -z "$MISSING"]]
+if [[ ! -z "$MISSING" ]]
 then
     echo Unable to find data for $MISSING
     exit 1
