@@ -37,11 +37,21 @@ then
 fi
 
 ##  hcp input
-HCPINPUT=https://github.com/datalad-datasets/human-connectome-project-openaccess
-if [[ -z ${HCPINPUT} ]]
+BIDSINPUT=$1
+if [[ -z ${BIDSINPUT} ]]
 then
     echo "Required argument is an identifier of the BIDS source"
     # exit 1
+fi
+
+# Is it a directory on the filesystem?
+BIDS_INPUT_METHOD=clone
+if [[ -d "${BIDSINPUT}" ]]
+then
+    # Check if it's datalad
+    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
+    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
 ## Start making things
@@ -87,7 +97,7 @@ datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 
 echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ${HCPINPUT} inputs/data
+datalad clone -d . ${BIDSINPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
