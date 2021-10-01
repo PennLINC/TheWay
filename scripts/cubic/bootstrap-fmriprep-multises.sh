@@ -392,5 +392,10 @@ fi
 datalad push --to input
 datalad push --to output
 
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
+
 # if we get here, we are happy
 echo SUCCESS
