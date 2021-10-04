@@ -160,14 +160,14 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/fmriprep_multisites_zip_audit.py \
+    -i code/bootstrap-fmriprep-multises-audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}*${sesid}* \
     --explicit \
     -o ${output_file} \
     -m "fmriprep-audit ${subid} ${sesid}" \
-    "python code/fmriprep_multisites_zip_audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/bootstrap-fmriprep-multises-audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -191,8 +191,8 @@ chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/bootstrap-fmriprep-multises-audit.py
-mv fmriprep_multisites_zip_audit.py code/
-chmod +x code/fmriprep_multisites_zip_audit.py
+mv bootstrap-fmriprep-multises-audit.py code/
+chmod +x code/bootstrap-fmriprep-multises-audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
