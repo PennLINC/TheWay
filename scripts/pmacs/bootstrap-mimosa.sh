@@ -247,7 +247,8 @@ if [ $# -eq 2 ]; then
         --register \
         --whitestripe \
         --thresh 0.25 \
-        --debug
+        --debug \
+        --skip_bids_validator
 else
     singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
         pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
@@ -260,10 +261,11 @@ else
         --register \
         --whitestripe \
         --thresh 0.25 \
-        --debug
+        --debug \
+        --skip_bids_validator
 fi
 
-outdirs=$(ls | grep mimosa_)
+outdirs=$(ls | grep mimosa)
 7z a ${subid}_mimosa-0.2.1.zip $outdirs
 rm -rf $outdirs
 
