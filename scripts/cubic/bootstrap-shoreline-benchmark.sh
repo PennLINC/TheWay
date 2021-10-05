@@ -410,7 +410,7 @@ cat >> code/qsub_rerun.sh << "EOT"
 # USAGE bash code/qsub_rerun.sh [do run]
 # With no arguments, print whether the branch exists in
 # the output_ria (the job has completed successfully)
-# 
+#
 
 
 QSIPREP_SCHEMES="ABCD DSIQ5 HCP HASC55"
@@ -418,6 +418,11 @@ EDDY_SCHEMES="ABCD HCP PNC"
 NOISES="realistic"
 PERCENT_MOTION=15
 NUM_PERMS=10
+dorun=0
+if [ $# -gt 0 ]; then
+    dorun=1
+    echo Submitting jobs to SGE
+fi
 
 # Discover which branches have completed
 cd ${PROJECTROOT}/output_ria/alias/data/
@@ -426,18 +431,22 @@ running_branches=$(qstat -r | grep "Full jobname" | tr -s ' ' | cut -d ' ' -f 4 
 
 submit_unfinished(){
 
-BRANCH="${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${simnum}"
-branch_ok=$(echo $branches | grep "${BRANCH}," | wc -c)
-branch_submitted=$(echo $running_branches | grep "${BRANCH}," | wc -c)    
-    if [ "${branch_submitted}" -gt 0  ]; then
+    BRANCH="${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${simnum}"
+    branch_ok=$(echo $branches | grep "${BRANCH}," | wc -c)
+    branch_submitted=$(echo $running_branches | grep "${BRANCH}," | wc -c)
+
+    # check status of this branch
+    if [ ${branch_ok} -gt 0 ]; then
+        echo COMPLETE: $BRANCH
+
+    elif [ "${branch_submitted}" -gt 0  ]; then
         echo WAITING FOR: ${BRANCH}
-    
-    elif [ ${branch_ok} == '0' ];
-    then
+
+    else
         echo INCOMPLETE: $BRANCH
 
         # Run it if we got an extra argument
-        if [ "$#" -gt 0 ]; then
+        if [ ${dorun} -gt 0 ]; then
 
             qsub \
                 -e ${LOGDIR} -o ${LOGDIR} \
@@ -456,7 +465,7 @@ branch_submitted=$(echo $running_branches | grep "${BRANCH}," | wc -c)
         fi
 
     else
-        echo COMPLETE: $BRANCH
+
     fi
 }
 
