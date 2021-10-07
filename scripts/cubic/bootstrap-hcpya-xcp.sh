@@ -136,11 +136,10 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=96G
-#$ -l s_vmem=96G
-#$ -l tmpfree=250G
-#$ -pe threaded 50
-#$ -j y
+#$ -l h_vmem=100G
+#$ -l s_vmem=100G
+#$ -l tmpfree=200G
+
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -176,6 +175,7 @@ cd ds
 git remote add outputstore "$pushgitremote"
 # all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
+echo GIT CHECKOUT FINISHED
 # we pull down the input subject manually in order to discover relevant
 # files. We do this outside the recorded call, because on a potential
 # re-run we want to be able to do fine-grained recomputing of individual
@@ -185,6 +185,7 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
+echo GET CONTAINERS FINISHED
 datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
@@ -258,7 +259,6 @@ for subject in ${SUBJECTS}; do
   echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
-  echo "sleep 600" >> code/qsub_calls.sh
 done
 chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
