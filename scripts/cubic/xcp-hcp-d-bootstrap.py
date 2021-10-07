@@ -142,7 +142,6 @@ for j in tasklist:
 	ROIFolder="{0}/{1}/MNINonLinear/ROIs".format(hcp_dir,subid)
 
 
-
 	segmentation = '{0}/{1}/ses-V1/files/MNINonLinear/ROIs/wmparc.2.nii.gz'.format(hcp_dir,subid,orig_task)
 	wm_mask_out = "{3}/WMReg.2.nii.gz".format(ROIFolder)
 	vent_mask_out = "{3}/CSFReg.2.nii.gz".format(ROIFolder)
@@ -191,7 +190,7 @@ for j in tasklist:
 	# create/copy  cifti
 	niftip  = '{0}/{1}/MNINonLinear/Results/{2}/{2}.nii.gz'.format(hcp_dir,subid,j,j) # to get TR  and just sample
 	niftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz'
-	ciftip = datadir + '/'+ j +'_Atlas_MSMAll.dtseries.nii'
+	ciftip = datadir + '/'+ j +'_Atlas.dtseries.nii'
 	ciftib = funcdir+'/sub-'+subid+'_task-'+taskname+'_acq-'+ acqname +'_space-fsLR_den-91k_bold.dtseries.nii'
 
 	os.system('cp {0} {1}'.format(ciftip,ciftib))
@@ -209,8 +208,7 @@ for j in tasklist:
 
 	
 
-# just fake anatomical profile for xcp, it wont be use
-anat1 = datadir +'/' +'/SBRef_dc.nii.gz'
+anat1 = '{0}/{1}/ses-V1/files/MNINonLinear/T1w_restore.nii.gz'.format(hcp_dir,subid,orig_task)
 mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
 t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
 cmd = 'cp {0} {1}'.format(anat1,mni2t1)
