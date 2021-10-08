@@ -83,8 +83,6 @@ git commit --amend -m 'Register containers dataset as a subdataset'
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
-#$ -l h_vmem=32G
-#$ -pe threaded 2-6
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -101,14 +99,16 @@ PERCENT_MOTION="$5"
 simnum="$6"
 method="$7"
 transform="$8"
+denoise="$9"
+motion_severity="${10}"
 
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+# cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${simnum}"
+BRANCH="job-${JOB_ID}-${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${denoise}-${simnum}"
 mkdir ${BRANCH}
 cd ${BRANCH}
 
@@ -143,8 +143,8 @@ datalad get -n "inputs/data"
 
 # ------------------------------------------------------------------------------
 # Do the run!
-outputname="${scheme}_${noise}_${PERCENT_MOTION}_${simnum}_${method}-${transform}-qsiprep-0.14.3.zip"
-run_args="${scheme} ${noise} ${PERCENT_MOTION} ${simnum} ${method} ${transform} ${outputname}"
+outputname="${scheme}_${noise}_${PERCENT_MOTION}_${simnum}_${method}-${transform}-${denoise}-${motion_severity}-qsiprep-0.14.3.zip"
+run_args="${scheme} ${noise} ${PERCENT_MOTION} ${simnum} ${method} ${transform} ${denoise} ${motion_severity} ${outputname}"
 
 datalad run \
     -i "inputs/data/${noise}/"'*/sub-'"${scheme}" \
@@ -186,9 +186,11 @@ percent_motion="$3"
 permutation_number="$4"
 hmc_method="$5"
 transform="$6"
-outputname="$7"
+denoise="$7"
+motion_severity="$9"
+outputname="$8"
 
-CONTAINER=containers/images/bids/bids-qsiprep--0.14.2.sing
+CONTAINER=containers/images/bids/bids-qsiprep--0.14.3.sing
 SOURCEBIND='-B /cbica/projects/Shoreline/code/qsiprep/qsiprep:/usr/local/miniconda/lib/python3.7/site-packages/qsiprep'
 
 # Create the subset in bids_subset/
@@ -197,7 +199,8 @@ singularity exec --cleanenv -B ${PWD} \
         ${sequence} \
         ${noise} \
         ${percent_motion} \
-        ${permutation_number}
+        ${permutation_number} \
+        ${motion_severity}
 
 
 workdir=${PWD}/.git/tmp/wdir
@@ -220,8 +223,7 @@ then
             --stop-on-first-crash \
             --fs-license-file code/license.txt \
             --skip-bids-validation \
-            --denoise-method none \
-            --dwi-only \
+            --denoise-method ${denoise} \
             --eddy-config code/quadratic.json \
             --output-resolution 2.0
     else
@@ -237,8 +239,7 @@ then
             --stop-on-first-crash \
             --fs-license-file code/license.txt \
             --skip-bids-validation \
-            --denoise-method none \
-            --dwi-only \
+            --denoise-method ${denoise} \
             --output-resolution 2.0
     fi
 
@@ -260,8 +261,7 @@ else
         --hmc_transform ${transform} \
         --shoreline-iters 2 \
         --b0-motion-corr-to first \
-        --denoise-method none \
-        --dwi-only \
+        --denoise-method ${denoise} \
         --output-resolution 2.0
 fi
 
@@ -281,11 +281,18 @@ cat > code/create_motion_subset.py << "EOT"
 
 USAGE:
 
-python create_motion_subset.py sequence noise percent_motion permutation_number
+python create_motion_subset.py sequence noise percent_motion permutation_number severity
 
 Where
-    sequence is HASC55, HCP, ABCD,
+    sequence is HASC55, HCP, ABCD, PN, DSIQ5
+    noise is "realistic" or "noisefree"
+    percent_motion is 1-100
+    permutation_number is an integer
+    severity is "low" or "high"
 
+Creates new version of the data with random volumes (determined by permutation_number)
+are replaced with low|high motion versions of the same gradient direction. The percent
+of volumes to be replaced is determined by percent_motion.
 """
 
 
@@ -298,9 +305,9 @@ import numpy as np
 
 def simulate_motion(
         seq='HASC55', noise='noisefree', percent_motion=10,
-        permutation_number=999):
+        permutation_number=999, severity=''):
 
-    args = dict(seq=seq, noise=noise, percent_motion=percent_motion)
+    args = dict(seq=seq, noise=noise, percent_motion=percent_motion, severity=severity)
 
     dataset_description = \
         'inputs/data/{noise}/nomotion/' \
@@ -318,11 +325,11 @@ def simulate_motion(
 
     # All motion simulation uses the low motion examples
     motion_file = 'inputs/data/ground_truth_motion/' \
-        'sub-{seq}_acq-{noise}_run-lowmotion_dwi_motion.txt'.format(**args)
+        'sub-{seq}_acq-{noise}_run-{severity}motion_dwi_motion.txt'.format(**args)
     all_motion = np.loadtxt(motion_file)
     motion_dwi = \
-        'inputs/data/{noise}/lowmotion/sub-{seq}/' \
-        'dwi/sub-{seq}_acq-{noise}Xlowmotion_dwi.nii.gz'.format(**args)
+        'inputs/data/{noise}/{severity}motion/sub-{seq}/' \
+        'dwi/sub-{seq}_acq-{noise}X{severity}motion_dwi.nii.gz'.format(**args)
     motion_img = nb.load(motion_dwi)
     motion_data = motion_img.get_fdata(dtype=np.float32)
 
@@ -362,9 +369,10 @@ if __name__ == "__main__":
     noise = sys.argv[2]
     percent_motion = int(sys.argv[3])
     permutation_number = int(sys.argv[4])
+    severity = sys.argv[5]
     simulate_motion(
         seq=sequence, noise=noise, percent_motion=percent_motion,
-        permutation_number=permutation_number
+        permutation_number=permutation_number, severity=severity
     )
 
 EOT
@@ -412,12 +420,37 @@ cat >> code/qsub_rerun.sh << "EOT"
 # the output_ria (the job has completed successfully)
 #
 
-
 QSIPREP_SCHEMES="ABCD DSIQ5 HCP HASC55"
 EDDY_SCHEMES="ABCD HCP PNC"
 NOISES="realistic"
 PERCENT_MOTION=15
 NUM_PERMS=10
+#DENOISERS="dwidenoise none patch2self"
+DENOISERS="dwidenoise"
+
+getreq(){
+    case $1 in
+
+    HCP | DSIQ5)
+        memreq="80G"
+        threadreq="4-6"
+        ;;
+    ABCD)
+        memreq="48G"
+        threadreq="2-4"
+        ;;
+    PNC | HASC55)
+        memreq="36G"
+        threadreq="2-4"
+        ;;
+    *)
+        memreq="54G"
+        threadreq="2-4"
+        ;;
+
+    esac
+}
+
 dorun=0
 if [ $# -gt 0 ]; then
     dorun=1
@@ -431,13 +464,13 @@ running_branches=$(qstat -r | grep "Full jobname" | tr -s ' ' | cut -d ' ' -f 4 
 
 submit_unfinished(){
 
-    BRANCH="${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${simnum}"
+    BRANCH="${method}-${scheme}-${noise}-${PERCENT_MOTION}-${transform}-${denoise}-${simnum}"
     branch_ok=$(echo $branches | grep "${BRANCH}," | wc -c)
     branch_submitted=$(echo $running_branches | grep "${BRANCH}," | wc -c)
 
     # check status of this branch
     if [ ${branch_ok} -gt 0 ]; then
-        echo COMPLETE: $BRANCH
+        echo FINISHED: $BRANCH
 
     elif [ "${branch_submitted}" -gt 0  ]; then
         echo WAITING FOR: ${BRANCH}
@@ -448,9 +481,16 @@ submit_unfinished(){
         # Run it if we got an extra argument
         if [ ${dorun} -gt 0 ]; then
 
+            # Set variables for resource requirements
+            getreq
+
+            # Do the qsub call
+            set +x
             qsub \
                 -e ${LOGDIR} -o ${LOGDIR} \
                 -cwd \
+                -l "h_vmem=${memreq}" \
+                -pe threaded ${threadreq} \
                 -N x${BRANCH} \
                 -v DSLOCKFILE=$DSLOCKFILE \
                 code/participant_job.sh \
@@ -461,7 +501,9 @@ submit_unfinished(){
                     ${PERCENT_MOTION} \
                     ${simnum} \
                     ${method} \
-                    ${transform}
+                    ${transform} \
+                    ${denoise}
+            set -x
         fi
 
     else
@@ -470,30 +512,33 @@ submit_unfinished(){
 }
 
 cd $PROJECTROOT/analysis
-for noise in ${NOISES}
+for denoise in ${DENOISERS}
 do
-    for simnum in `seq ${NUM_PERMS}`
+    for noise in ${NOISES}
     do
-        method=3dSHORE
-        for scheme in ${QSIPREP_SCHEMES}
+        for simnum in `seq ${NUM_PERMS}`
         do
-            transform=Rigid
-            submit_unfinished
+            method=3dSHORE
+            for scheme in ${QSIPREP_SCHEMES}
+            do
+                transform=Rigid
+                submit_unfinished
 
-            transform=Affine
-            submit_unfinished
-        done
+                transform=Affine
+                submit_unfinished
+            done
 
-        method=eddy
-        for scheme in ${EDDY_SCHEMES}
-        do
-            # One for linear
-            transform=Linear
-            submit_unfinished
+            method=eddy
+            for scheme in ${EDDY_SCHEMES}
+            do
+                # One for linear
+                transform=Linear
+                submit_unfinished
 
-            # One for quadratic
-            transform=Quadratic
-            submit_unfinished
+                # One for quadratic
+                transform=Quadratic
+                submit_unfinished
+            done
         done
     done
 done
