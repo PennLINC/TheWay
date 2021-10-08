@@ -208,6 +208,9 @@ for j in tasklist:
 
 	
 
+# if we are goin to use xcp-0.04 we dont need  real `MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5` otherwise we do
+# hcp doesn't produced ants trasnform file, the only thing is to generate it or change xcp to accomodate both
+
 anat1 = '{0}/{1}/ses-V1/files/MNINonLinear/T1w_restore.nii.gz'.format(hcp_dir,subid,orig_task)
 mni2t1 = anatdir+'sub-'+subid+'_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5'
 t1w2mni = anatdir+'sub-'+subid+'_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5'
