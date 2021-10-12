@@ -73,7 +73,6 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 # point.
 datalad create -c yoda analysis
 cd analysis
-
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
 datalad create-sibling-ria -s output "${output_store}"
@@ -94,8 +93,8 @@ else
     datalad save -r -m "added input data"
 fi
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 | sort)
-if [ -z "${SUBJECTS}" ]
+ZIPS=$(find inputs/data -name 'sub-*' | cut -d '/' -f 3 | sort)
+if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
@@ -258,13 +257,14 @@ echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-  SESSIONS=$(ls  inputs/data/$subject | grep ses- | cut -d '/' -f 1)
-  for session in ${SESSIONS}; do
+
+
+for zip in ${ZIPS}; do
+    subject=`echo ${zip} | cut -d '_' -f 1` 
+    session=`echo ${zip} | cut -d '_' -f 2` 
     echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
     ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
-  done
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
