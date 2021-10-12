@@ -94,7 +94,7 @@ else
     datalad save -r -m "added input data"
 fi
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 | sort)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
