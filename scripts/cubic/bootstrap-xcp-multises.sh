@@ -209,7 +209,7 @@ sesid="$2"
 wd=${PWD}
 
 cd inputs/data
-7z x ${subid}_{sesid}_fmriprep-20.2.3.zip
+7z x ${subid}_${sesid}_fmriprep-20.2.3.zip
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
