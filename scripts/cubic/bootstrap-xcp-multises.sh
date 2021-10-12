@@ -150,6 +150,7 @@ cd ${BRANCH}
 datalad clone "${dssource}" ds
 # all following actions are performed in the context of the superdataset
 cd ds
+
 # in order to avoid accumulation temporary git-annex availability information
 # and to avoid a syncronization bottleneck by having to consolidate the
 # git-annex branch across jobs, we will only push the main tracking branch
@@ -159,18 +160,21 @@ cd ds
 # and we want to avoid progressive slowdown. Instead we only ever push
 # a unique branch per each job (subject AND process specific name)
 git remote add outputstore "$pushgitremote"
+
 # all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
+
 # we pull down the input subject manually in order to discover relevant
 # files. We do this outside the recorded call, because on a potential
 # re-run we want to be able to do fine-grained recomputing of individual
 # outputs. The recorded calls will have specific paths that will enable
 # recomputation outside the scope of the original setup
-datalad get -n "inputs/data/${subid}"
-# Reomve all subjects we're not working on
-(cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
+
 # ------------------------------------------------------------------------------
 # Do the run!
+
+datalad get -r pennlinc-containers
+
 datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}/${sesid}\
