@@ -177,12 +177,10 @@ datalad get -r pennlinc-containers
 
 datalad run \
     -i code/xcp_zip.sh \
-    -i inputs/data/${subid}/${sesid}\
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/xcp-0-0-4/image \
+    -i inputs/data/${subid}_${sesid}_fmriprep*.zip \
     --explicit \
     -o ${subid}_${sesid}_xcp-0-0-4.zip \
-    -m "xcp:0.0.4 ${subid} ${sesid}" \
+    -m "xcp-abcd-run ${subid} ${sesid}" \
     "bash ./code/xcp_zip.sh ${subid} ${sesid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
