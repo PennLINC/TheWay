@@ -196,19 +196,34 @@ timeseries_extraction:
   run: On
 
   tse_roi_paths:
-    /cpac_templates/aal_mask_pad.nii.gz: Avg, PearsonCorr, PartialCorr
-    /cpac_templates/CC200.nii.gz: Avg, PearsonCorr, PartialCorr
+    # AAL
     /ndmg_atlases/label/Human/AAL_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # Atlases
+    /ndmg_atlases/label/Human/Brodmann_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    /ndmg_atlases/label/Human/Glasser_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # Slab
+    /ndmg_atlases/label/Human/Slab907_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # HO: Thresholded
     /ndmg_atlases/label/Human/HarvardOxfordcort-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/HarvardOxfordsub-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # Jeulich
+    /ndmg_atlases/label/Human/Juelich_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # CC
+    /cpac_templates/CC200.nii.gz: Avg, PearsonCorr, PartialCorr
+    /cpac_templates/CC400.nii.gz: Avg, PearsonCorr, PartialCorr
+    # Shaefer
     /ndmg_atlases/label/Human/Schaefer1000_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Schaefer200_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Schaefer300_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Schaefer400_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    # Networks
+    #  Yeo
     /ndmg_atlases/label/Human/Yeo-17-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Yeo-17_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Yeo-7-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Yeo-7_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
+    #  Smith 2009
+    /cpac_templates/PNAS_Smith09_rsn10.nii.gz: Avg, PearsonCorr, PartialCorr
 EOT
 
 ## the actual compute job specification
