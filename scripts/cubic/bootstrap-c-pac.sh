@@ -223,7 +223,7 @@ timeseries_extraction:
     /ndmg_atlases/label/Human/Yeo-7-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     /ndmg_atlases/label/Human/Yeo-7_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
     #  Smith 2009
-    /cpac_templates/PNAS_Smith09_rsn10.nii.gz: Avg, PearsonCorr, PartialCorr
+    /cpac_templates/PNAS_Smith09_rsn10.nii.gz: SpatialReg, PearsonCorr, PartialCorr
 EOT
 
 ## the actual compute job specification
