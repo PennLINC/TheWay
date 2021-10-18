@@ -93,7 +93,7 @@ else
     datalad save -r -m "added input data"
 fi
 
-ZIPS=$(find inputs/data -name 'sub-*' | cut -d '/' -f 3 | sort)
+ZIPS=$(find inputs/data -name 'sub-*fmriprep*' | cut -d '/' -f 3 | sort)
 if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
@@ -216,7 +216,7 @@ singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/x
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
 cd xcp
-7z a ../${subid}_xcp-0-0-4.zip xcp_abcd
+7z a ../${subid}_${sesid}_xcp-0-0-4.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 
 EOT
