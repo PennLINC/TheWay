@@ -506,8 +506,6 @@ submit_unfinished(){
             set -x
         fi
 
-    else
-
     fi
 }
 
