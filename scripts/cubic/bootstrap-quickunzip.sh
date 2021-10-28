@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# used to extract all outputs from xcp 
-PROJECTROOT=/cbica/projects/hcpya/xcp
-cd ${PROJECTROOT}
+# used to extract all outputs from an xcp bootstrap dir 
+
+PROJECTROOT=/cbica/projects/RBC/production/PNC/xcp # make sure to change this to the root of your bootstrap dir!
+cd ${HOME}
 RIA=${PROJECTROOT}/output_ria
-datalad create -c yoda -D "extract hcpya xcp results" results
-cd results
+datalad create -c yoda -D "extract pnc xcp results" xcp_outputs
+cd xcp_outputs
 datalad clone -d . --reckless ephemeral "ria+file://${RIA}#~data" inputs/data
 
 
@@ -33,13 +34,15 @@ do
 
     datalad run \
         -i ${input_zip} \
-        -o xcp_abcd \
         -o ${outdir} \
         --explicit \
         "bash code/get_files.sh ${input_zip}"
 done
 
-
+echo 'DATALAD RUN FINISHED'
 
 # CRITICAL!!! Don't uninstall, just rm -rf the inputs
 rm -rf inputs
+
+echo 'REMOVED INPUTS'
+echo 'SUCCESS'
