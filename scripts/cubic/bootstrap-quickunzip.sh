@@ -4,9 +4,11 @@
 
 PROJECTROOT=/cbica/projects/RBC/production/PNC/xcp # make sure to change this to the root of your bootstrap dir!
 cd ${HOME}
+mkdir DERIVATIVES
+cd ${HOME}/DERIVATIVES
 RIA=${PROJECTROOT}/output_ria
-datalad create -c yoda -D "extract pnc xcp results" xcp_outputs
-cd xcp_outputs
+datalad create -c yoda -D "extract pnc xcp results" XCP
+cd XCP
 datalad clone -d . --reckless ephemeral "ria+file://${RIA}#~data" inputs/data
 
 
