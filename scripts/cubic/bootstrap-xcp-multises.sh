@@ -123,8 +123,8 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
 #$ -l tmpfree=200G
+#$ -R y -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -255,7 +255,7 @@ eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for zip in ${ZIPS}; do
     subject=`echo ${zip} | cut -d '_' -f 1` 
     session=`echo ${zip} | cut -d '_' -f 2` 
-    echo "qsub -R y -l h_rt=24:00:00 -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
+    echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
     ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
 done
