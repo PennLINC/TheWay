@@ -1,16 +1,14 @@
 #!/bin/bash
 
-# used to extract all outputs from an xcp bootstrap dir 
-
-PROJECTROOT=/cbica/projects/hcpya/xcp # make sure to change this to the root of your bootstrap dir!
-
-cd ${HOME}
-mkdir DERIVATIVES
+# used to extract all outputs from xcp 
+PROJECTROOT=/cbica/projects/hcpya/xcp
+mkdir -p ${HOME}/DERIVATIVES
 cd ${HOME}/DERIVATIVES
 RIA=${PROJECTROOT}/output_ria
 datalad create -c yoda -D "extract pnc xcp results" XCP
 cd XCP
 datalad clone -d . --reckless ephemeral "ria+file://${RIA}#~data" inputs/data
+
 
 ## the actual compute job specification
 cat > code/get_files.sh << "EOT"
@@ -51,7 +49,6 @@ rm -rf inputs
 
 # make inputs/data exist again so working directory is clean 
 mkdir -p inputs/data
-
 
 # FOR CONSUMERS OF DATA (if you want to see the inputs/data):
 # note that datalad get -n JUST gets the git history of the files 
