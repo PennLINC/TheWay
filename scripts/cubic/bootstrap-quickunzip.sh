@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # used to extract all outputs from xcp 
-PROJECTROOT=/cbica/projects/hcpya/xcp
+PROJECTROOT=/cbica/projects/hcpya/xcp # ALERT! NEED TO CHANGE THIS PATH TO YOUR XCP BOOTSTRAP DIR 
 mkdir -p ${HOME}/DERIVATIVES
 cd ${HOME}/DERIVATIVES
 RIA=${PROJECTROOT}/output_ria
