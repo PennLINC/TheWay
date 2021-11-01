@@ -124,8 +124,9 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
 #$ -l tmpfree=200G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -272,7 +273,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  echo "qsub -R y -l h_rt=24:00:0 -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
