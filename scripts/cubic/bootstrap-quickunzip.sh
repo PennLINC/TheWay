@@ -16,13 +16,21 @@ cat > code/get_files.sh << "EOT"
 set -e -u -x
 
 ZIP_FILE=$1
+subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
+sesid=$(basename $ZIP_FILE | cut -d '_' -f 2)
 
-# Create a xcp/ directory
-unzip -n $ZIP_FILE
+# unzip outputs
+unzip -n $ZIP_FILE 'xcp_abcd/*' -d . 
 
-mv xcp_abcd/sub-* .
+# rename html to include sesid
+mv xcp_abcd/${subid}.html xcp_abcd/${subid}_${sesid}.html
 
+# copy outputs out of xcp_abcd
+cp -r xcp_abcd/* .
+
+# remove unzip dir
 rm -rf xcp_abcd
+
 
 EOT
 
