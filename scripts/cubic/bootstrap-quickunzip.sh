@@ -40,7 +40,8 @@ zip_files=$(find inputs/data/ -name '*.zip')
 for input_zip in ${zip_files}
 do
     subid=$(basename $input_zip | cut -d '_' -f 1)
-    html=${subid}.html
+    sesid=$(basename $ZIP_FILE | cut -d '_' -f 2)
+    html=${subid}_${sesid}.html
     datalad run \
         -i ${input_zip} \
         -o ${subid} \
