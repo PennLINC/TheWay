@@ -1,16 +1,74 @@
 #!/bin/bash
+#$ -S /bin/bash
+#$ -l h_vmem=25G
+#$ -l tmpfree=200G
 
-# used to extract all outputs from xcp 
-PROJECTROOT=/cbica/projects/hcpya/xcp # ALERT! NEED TO CHANGE THIS PATH TO YOUR XCP BOOTSTRAP DIR 
-mkdir -p ${HOME}/DERIVATIVES
-cd ${HOME}/DERIVATIVES
-RIA=${PROJECTROOT}/output_ria
-datalad create -c yoda -D "extract pnc xcp results" XCP
+#########################################################
+# QuickUnzip.sh                                         #
+# -------------                                         #
+#                                                       #
+# A bootstrap used to extract all outputs from xcp      #
+# into a DERIVATIVES directory                          #
+#                                                       #
+# Usage:                                                #
+#                                                       #
+# ./bootstrap-quickunzip.sh /PATH/TO/XCP/BOOTSTRAP/DIR  #
+#                                                       #
+# with QSUB:                                            #
+#                                                       #
+# qsub -cwd -N YOUR_JOB_NAME \                          #
+#   bootstrap-quickunzip.sh /PATH/TO/XCP/BOOTSTRAP/DIR  #
+#########################################################
+
+### 0. Set up environment
+source ${CONDA_PREFIX}/bin/activate reward
+echo I\'m in $PWD using `which python`
+
+set -e -u -x
+
+### 1. check datalad
+
+DATALAD_VERSION=$(datalad --version)
+
+if [ $? -gt 0 ]; then
+    echo "No datalad available in your conda environment."
+    echo "Try pip install datalad"
+    # exit 1
+fi
+
+echo USING DATALAD VERSION ${DATALAD_VERSION}
+
+### 2. Set up the directory that will contain the necessary directories
+echo Setting up directories...
+
+PROJECTROOT=${PWD}/xcp-derivatives
+if [[ -d ${PROJECTROOT} ]]
+then
+    echo ${PROJECTROOT} already exists
+    # exit 1
+fi
+
+if [[ ! -w $(dirname ${PROJECTROOT}) ]]
+then
+    echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
+    # exit 1
+fi
+
+mkdir -p $PROJECTROOT
+cd ${PROJECTROOT}
+
+XCPROOT=$1   # input 1: path to your XCP bootstrap
+
+### 3. Datalad create and clone the XCP outputs to the cwd input
+echo cloning XCP results to local unzip folder...
+RIA=${XCPROOT}/output_ria
+datalad create -c yoda -D "extract xcp results" XCP
 cd XCP
 datalad clone -d . --reckless ephemeral "ria+file://${RIA}#~data" inputs/data
 
 
-## the actual compute job specification
+### 4. Create the compute job spec
+echo writing script to file...
 cat > code/get_files.sh << "EOT"
 #!/bin/bash
 set -e -u -x
@@ -36,11 +94,13 @@ EOT
 
 datalad save -m "Add data extraction code" code
 
+### 5. run datalad
+echo running datalad script
 zip_files=$(find inputs/data/ -name '*.zip')
 for input_zip in ${zip_files}
 do
     subid=$(basename $input_zip | cut -d '_' -f 1)
-    sesid=$(basename $ZIP_FILE | cut -d '_' -f 2)
+    sesid=$(basename $input_zip | cut -d '_' -f 2)
     html=${subid}_${sesid}.html
     datalad run \
         -i ${input_zip} \
@@ -58,13 +118,6 @@ rm -rf inputs
 
 # make inputs/data exist again so working directory is clean 
 mkdir -p inputs/data
-
-# FOR CONSUMERS OF DATA (if you want to see the inputs/data):
-# note that datalad get -n JUST gets the git history of the files 
-# datalad clone ~/RBC_DERIVATIVES/PNC/XCP test_xcp_outputs
-# datalad get -n inputs/data # to see xcp zips
-# datalad get -n inputs/data/inputs/data # to see fmriprep and freesurfer zips
-# datalad get -n inputs/data/inputs/data/inputs/data # to see BIDS!
 
 echo 'REMOVED INPUTS'
 echo 'SUCCESS'
