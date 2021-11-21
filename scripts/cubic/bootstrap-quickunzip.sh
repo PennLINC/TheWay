@@ -21,7 +21,7 @@
 #########################################################
 
 ### 0. Set up environment
-source ${CONDA_PREFIX}/bin/activate reward
+source ${CONDA_PREFIX}/bin/activate # activate a specific environment if necessary 
 echo I\'m in $PWD using `which python`
 
 set -e -u -x
@@ -41,7 +41,7 @@ echo USING DATALAD VERSION ${DATALAD_VERSION}
 ### 2. Set up the directory that will contain the necessary directories
 echo Setting up directories...
 
-PROJECTROOT=${PWD}/xcp-derivatives
+PROJECTROOT=$(basename $HOME)/DERIVATIVES
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -102,6 +102,7 @@ do
     subid=$(basename $input_zip | cut -d '_' -f 1)
     sesid=$(basename $input_zip | cut -d '_' -f 2)
     html=${subid}_${sesid}.html
+    if 
     datalad run \
         -i ${input_zip} \
         -o ${subid} \
