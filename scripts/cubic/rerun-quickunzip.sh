@@ -1,3 +1,8 @@
+#!/bin/bash
+#$ -S /bin/bash
+#$ -l h_vmem=25G
+#$ -l tmpfree=200G
+
 # Run this script when there already exists an unzip dir but the unzip job got killed and needs to be rerun mid unzip 
 
 ### 0. Set up environment
