@@ -102,7 +102,7 @@ do
     subid=$(basename $input_zip | cut -d '_' -f 1)
     sesid=$(basename $input_zip | cut -d '_' -f 2)
     html=${subid}_${sesid}.html
-    if 
+
     datalad run \
         -i ${input_zip} \
         -o ${subid} \
