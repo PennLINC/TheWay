@@ -13,7 +13,6 @@ DATALAD_VERSION=$(datalad --version)
 
 if [ $? -gt 0 ]; then
     echo "No datalad available in your conda environment."
-    echo "Try pip install datalad"
     # exit 1
 fi
 
@@ -186,8 +185,8 @@ datalad run \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     --explicit \
-    -o ${subid}_qsiprep-0.13.1.zip \
-    -m "qsiprep:0.13.1 ${subid}" \
+    -o ${subid}_qsiprep-0.14.2.zip \
+    -m "qsiprep:0.14.2 ${subid}" \
     "bash ./code/qsiprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -234,7 +233,7 @@ singularity run --cleanenv -B ${PWD} \
     --output-resolution 1.8
 
 cd prep
-7z a ../${subid}_qsiprep-0.13.1.zip qsiprep
+7z a ../${subid}_qsiprep-0.14.2.zip qsiprep
 rm -rf prep .git/tmp/wkdir
 
 EOT
