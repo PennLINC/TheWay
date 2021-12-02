@@ -76,18 +76,10 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${FMRIPREPINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${FMRIPREPINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ria+file://${FMRIPREPINPUT}/output_ria#~data inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 ZIPS=$(find inputs/data -name 'sub-*fmriprep*' | cut -d '/' -f 3 | sort)
 if [ -z "${ZIPS}" ]
