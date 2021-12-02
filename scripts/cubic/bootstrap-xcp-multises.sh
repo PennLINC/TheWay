@@ -38,23 +38,19 @@ fi
 
 
 ##  fmriprep input
-#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep-multises/merge_ds
+#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep-multises/
 FMRIPREPINPUT=$1
 if [[ -z ${FMRIPREPINPUT} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "Required argument is an identifier of the fMRIPrep output zips"
     # exit 1
 fi
 
-
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${FMRIPREPINPUT}" ]]
+if [[ ! -d "${FMRIPREPINPUT}/output_ria/alias/data" ]]
 then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${FMRIPREPINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
+    echo "There must be alias in the output ria store that points to the"
+    echo "fMRIPrep output dataset"
+    # exit 1
 fi
 
 
