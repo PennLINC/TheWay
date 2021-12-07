@@ -31,6 +31,8 @@ then
     # exit 1
 fi
 
+mkdir -p $PROJECTROOT
+
 ## OUTPUT_ROOT will be the path to the bootstrap directory containing your derivatives
 OUTPUT_ROOT=$2
 if [[ -z ${OUTPUT_ROOT} ]]
