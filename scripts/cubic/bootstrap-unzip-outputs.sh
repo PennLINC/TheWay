@@ -33,9 +33,10 @@ fi
 
 mkdir -p $PROJECTROOT
 
-## OUTPUT_ROOT will be the path to the bootstrap directory containing your derivatives
-OUTPUT_ROOT=$2
-if [[ -z ${OUTPUT_ROOT} ]]
+## DERIVATIVE_BOOTSTRAP_DIR will be the path to the bootstrap directory containing your derivatives
+DERIVATIVE_BOOTSTRAP_DIR=$2
+DERIVATIVE_INPUT=ria+file://${DERIVATIVE_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${DERIVATIVE_BOOTSTRAP_DIR} ]]
 then
     echo "Required argument is the path to the fmriprep bootstrap directory."
     echo "This directory should contain analysis/, input_ria/ and output_ria/."
@@ -62,7 +63,7 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-datalad install -d . -r --source ${OUTPUT_ROOT} inputs/data
+datalad install -d . -r --source ${DERIVATIVE_INPUT} inputs/data
 
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
