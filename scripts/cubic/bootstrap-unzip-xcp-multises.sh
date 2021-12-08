@@ -34,7 +34,7 @@ fi
 mkdir -p $PROJECTROOT
 
 ## DERIVATIVE_BOOTSTRAP_DIR will be the path to the bootstrap directory containing your derivatives
-DERIVATIVE_BOOTSTRAP_DIR=$2
+DERIVATIVE_BOOTSTRAP_DIR=$1
 DERIVATIVE_INPUT=ria+file://${DERIVATIVE_BOOTSTRAP_DIR}"/output_ria#~data"
 if [[ -z ${DERIVATIVE_BOOTSTRAP_DIR} ]]
 then
