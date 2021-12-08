@@ -79,8 +79,10 @@ fi
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=64G
-
+#$ -l h_vmem=25G
+#$ -l tmpfree=200G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -90,41 +92,38 @@ set -e -u -x
 dssource="$1"
 pushgitremote="$2"
 subid="$3"
+sesid="$4"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
+# OR Run it on a shared network drive
+# cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}"
+BRANCH="job-${JOB_ID}-${subid}-${sesid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
+
+# get the analysis dataset, which includes the inputs as well
+# importantly, we do not clone from the lcoation that we want to push the
+# results to, in order to avoid too many jobs blocking access to
+# the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
+# all following actions are performed in the context of the superdataset
 cd ds
 git remote add outputstore "$pushgitremote"
 git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 
-ZIPS_DIR=${PWD}/inputs/data
-
-datalad get -n inputs/data
-INPUT_ZIP=$(ls inputs/data/${subid}*.zip | cut -d '@' -f 1 || true)
-if [ ! -z "${INPUT_ZIP}" ]; then
-    INPUT_ZIP="-i ${INPUT_ZIP}"
-fi
-echo DATALAD RUN INPUT
-echo ${INPUT_ZIP}
-
-subid=$(basename $INPUT_ZIP | cut -d '_' -f 1)
-sesid=$(basename $INPUT_ZIP | cut -d '_' -f 2)
 html=${subid}_${sesid}.html
 
 datalad run \
     -i code/get_outputs.sh \
-    ${INPUT_ZIP} \
+    -i inputs/data/${subid}_${sesid}_xcp*.zip \
     --explicit \
     -o ${subid} \
     -o ${html} \
     -m "unzipped ${input_zip}" \
-    "bash code/get_files.sh ${INPUT_ZIP}"
+    "bash code/get_files.sh inputs/data/${subid}_${sesid}_xcp*.zip"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -166,79 +165,35 @@ mkdir logs
 echo .SGE_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
-################################################################################
-# SGE SETUP START - remove or adjust to your needs
-################################################################################
+datalad save -m "Participant compute job implementation"
+
+# Add a script for merging outputs
+MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
 cat > code/merge_outputs.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 EOT
-
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
-cat >> code/merge_outputs.sh << "EOT"
-datalad clone ${outputsource} merge_ds
-cd merge_ds
-NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
-echo "Found $NBRANCHES branches to merge"
-gitref=$(git show-ref master | cut -d ' ' -f1 | head -n 1)
-# query all branches for the most recent commit and check if it is identical.
-# Write all branch identifiers for jobs without outputs into a file.
-for i in $(git branch -a | grep job- | sort); do [ x"$(git show-ref $i \
-  | cut -d ' ' -f1)" = x"${gitref}" ] && \
-  echo $i; done | tee code/noresults.txt | wc -l
-for i in $(git branch -a | grep job- | sort); \
-  do [ x"$(git show-ref $i  \
-     | cut -d ' ' -f1)" != x"${gitref}" ] && \
-     echo $i; \
-done | tee code/has_results.txt
-mkdir -p code/merge_batches
-num_branches=$(wc -l < code/has_results.txt)
-CHUNKSIZE=5000
-set +e
-num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-[[ $num_chunks == 0 ]] && num_chunks=1
-set -e -x
-for chunknum in $(seq 1 $num_chunks)
-do
-    startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
-    endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
-    batch_file=code/merge_branches_$(printf %04d ${chunknum}).txt
-    [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
-    branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
-    echo ${branches} > ${batch_file}
-    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
-done
-# Push the merge back
-git push
-# Get the file availability info
-git annex fsck --fast -f output-storage
-# This should not print anything
-MISSING=$(git annex find --not --in output-storage)
-if [[ ! -z "$MISSING" ]]
-then
-    echo Unable to find data for $MISSING
-    exit 1
-fi
-# stop tracking this branch
-git annex dead here
-datalad push --data nothing
-echo SUCCESS
-EOT
-
-
+################################################################################
+# SGE SETUP START - remove or adjust to your needs
+################################################################################
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
 echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
+
+for zip in ${ZIPS}; do
+    subject=`echo ${zip} | cut -d '_' -f 1` 
+    session=`echo ${zip} | cut -d '_' -f 2` 
+    echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
+    ${PWD}/code/participant_job.sh \
+    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
@@ -250,6 +205,7 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
 datalad uninstall -r --nocheck inputs/data
+
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
@@ -263,3 +219,4 @@ ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS
+
