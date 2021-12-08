@@ -191,7 +191,7 @@ eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for zip in ${ZIPS}; do
     subject=`echo ${zip} | cut -d '_' -f 1` 
     session=`echo ${zip} | cut -d '_' -f 2` 
-    echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
+    echo "qsub -cwd ${env_flags} -N UNZIP${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
     ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
 done
