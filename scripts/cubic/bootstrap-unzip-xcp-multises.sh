@@ -188,7 +188,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 
-for zip in ${ZIPS}; do
+for zip in ${SUBJECTS}; do
     subject=`echo ${zip} | cut -d '_' -f 1` 
     session=`echo ${zip} | cut -d '_' -f 2` 
     echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
