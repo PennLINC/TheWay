@@ -68,8 +68,8 @@ datalad install -d . -r --source ${DERIVATIVE_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
-if [ -z "${SUBJECTS}" ]
+ZIPS=$(find inputs/data -name 'sub-*xcp*' | cut -d '/' -f 3 | sort)
+if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
@@ -188,7 +188,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 
-for zip in ${SUBJECTS}; do
+for zip in ${ZIPS}; do
     subject=`echo ${zip} | cut -d '_' -f 1` 
     session=`echo ${zip} | cut -d '_' -f 2` 
     echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
