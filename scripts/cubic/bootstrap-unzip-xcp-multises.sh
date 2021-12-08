@@ -122,7 +122,7 @@ datalad run \
     --explicit \
     -o ${subid} \
     -o ${html} \
-    -m "unzipped ${input_zip}" \
+    -m "unzipped ${subid}_${sesid}" \
     "bash code/get_files.sh inputs/data/${subid}_${sesid}_xcp*.zip"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
