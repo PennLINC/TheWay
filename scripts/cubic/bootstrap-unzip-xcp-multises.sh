@@ -117,13 +117,14 @@ git checkout -b "${BRANCH}"
 html=${subid}_${sesid}.html
 
 datalad run \
-    -i code/get_outputs.sh \
+    -i code/get_files.sh \
     -i inputs/data/${subid}_${sesid}_xcp*.zip \
     --explicit \
     -o ${subid} \
     -o ${html} \
     -m "unzipped ${subid}_${sesid}" \
     "bash code/get_files.sh inputs/data/${subid}_${sesid}_xcp*.zip"
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
