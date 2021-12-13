@@ -147,7 +147,7 @@ ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 
 # unzip outputs
-unzip -n $ZIP_FILE 'xcp_abcd/*' -d .
+unzip -n $ZIP_FILE 'fmriprep/*' -d .
 
 # remove files we don't need
 rm fmriprep/func/*from-scanner_to-T1w_mode-image_xfm.txt
