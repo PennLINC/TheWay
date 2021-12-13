@@ -147,19 +147,17 @@ ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 
 # unzip outputs
-unzip \
-    -n $ZIP_FILE 'fmriprep/*' \
-    -d . -x figures/ \
-    -x log/ \
-    -x ses-PNC1/anat/ \
-    -x *from-scanner_to-T1w_mode-image_xfm.txt \
-    -x *from-T1w_to-scanner_mode-image_xfm.txt \
-    -x *space-MNI152NLin6Asym_res-2_boldref.nii.gz
-    -x *space-MNI152NLin6Asym_res-2_desc-aparcaseg_dseg.nii.gz
-    -x *space-MNI152NLin6Asym_res-2_desc-aseg_dseg.nii.gz
+unzip -n $ZIP_FILE 'xcp_abcd/*' -d .
 
 # copy outputs out of fmriprep
-cp -r fmriprep/* .
+# remove files we don't need
+rm fmriprep/func/*from-scanner_to-T1w_mode-image_xfm.txt
+rm fmriprep/func/*from-T1w_to-scanner_mode-image_xfm.txt
+rm fmriprep/func/*space-MNI152NLin6Asym_res-2_boldref.nii.gz
+rm fmriprep/func/*space-MNI152NLin6Asym_res-2_desc-aparcaseg_dseg.nii.gz
+rm fmriprep/func/*space-MNI152NLin6Asym_res-2_desc-aseg_dseg.nii.gz
+
+cp -r fmriprep/func/* .
 # remove unzip dir
 rm -rf fmriprep
 EOT
