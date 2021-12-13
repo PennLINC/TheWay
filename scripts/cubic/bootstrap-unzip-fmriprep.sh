@@ -192,8 +192,9 @@ echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+for zip in ${ZIPS}; do
+  subject=`echo ${zip} | cut -d '_' -f 1`
+  echo "qsub -cwd ${env_flags} -N UNZIP${subject} ${eo_args} \ \
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
