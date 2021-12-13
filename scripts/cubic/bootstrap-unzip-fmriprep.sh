@@ -18,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/DERIVATIVES
+PROJECTROOT=${PWD}/FMRIPREP
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -192,13 +192,10 @@ echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-
-for zip in ${ZIPS}; do
-    subject=`echo ${zip} | cut -d '_' -f 1`
-    session=`echo ${zip} | cut -d '_' -f 2`
-    echo "qsub -cwd ${env_flags} -N UNZIP${subject}_${session} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
+for subject in ${SUBJECTS}; do
+  echo "qsub -cwd ${env_flags} -N fp${subject} ${eo_args} \
+  ${PWD}/code/participant_job.sh \
+  ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
