@@ -116,7 +116,7 @@ datalad run \
     -i code/get_files.sh \
     -i inputs/data/${subid}_xcp*.zip \
     --explicit \
-    -o ${subid}_ses-PNC1_task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii \
+    -o ${subid} \
     -m "unzipped ${subid}" \
     "bash code/get_files.sh inputs/data/${subid}_xcp*.zip"
 # file content first -- does not need a lock, no interaction with Git
