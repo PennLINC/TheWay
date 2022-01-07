@@ -37,23 +37,22 @@ then
 fi
 
 
-##  fmriprep input
-#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep/merge_ds
-FMRIPREPINPUT=$1
-if [[ -z ${FMRIPREPINPUT} ]]
+FMRIPREP_BOOTSTRAP_DIR=$1
+FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${FMRIPREP_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
 
 # Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${FMRIPREPINPUT}" ]]
+FMRIPREP_INPUT_METHOD=clone
+if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
 then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${FMRIPREPINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
+    echo "There must be alias in the output ria store that points to the"
+    echo "fmriprep output dataset"
+    # exit 1
 fi
 
 
@@ -100,33 +99,22 @@ then
     # exit 1
 fi
 
+set +u
+CONTAINERDS=$2
+set -u
+#if [[ ! -z "${CONTAINERDS}" ]]; then
 cd ${PROJECTROOT}
-
-# Clone the containers dataset. If specified on the command, use that path
-
-#MUST BE AS NOT RBC USER
-# build the container in /cbica/projects/RBC/dropbox
-# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:0.0.4
-
-#AS RBC
-# then copy to /cbica/projects/RBC/xcp-abcd-container
-# datalad create -D "xcp-abcd container".
-
-# do that actual copy
-#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.4.sif xcp-abcd-0-0-4 --update
-
-#can delete
-#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.4.sif
-
-CONTAINERDS=~/xcp-abcd-0-0-4-container
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-else
-    echo "No containers dataset specified, attempting to clone from pmacs"
-    datalad clone \
-        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
-        pennlinc-containers
-fi
+datalad clone ${CONTAINERDS} pennlinc-containers
+## Add the containers as a subdataset
+#datalad clone ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers pennlinc-containers
+# download the image so we don't ddos pmacs
+cd pennlinc-containers
+datalad get -r .
+# get rid of the references to pmacs
+set +e
+datalad siblings remove -s pmacs-ria-storage
+datalad siblings remove -s origin
+set -e
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -136,8 +124,9 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l s_vmem=32G
 #$ -l tmpfree=100G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
