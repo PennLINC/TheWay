@@ -111,10 +111,10 @@ datalad clone ${CONTAINERDS} pennlinc-containers
 cd pennlinc-containers
 datalad get -r .
 # get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
+#set +e
+#datalad siblings remove -s pmacs-ria-storage
+#datalad siblings remove -s origin
+#set -e
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
