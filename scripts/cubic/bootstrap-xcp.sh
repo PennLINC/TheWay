@@ -303,6 +303,3 @@ echo SUCCESS
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
 
-
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data'
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data'
