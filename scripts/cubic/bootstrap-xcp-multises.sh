@@ -38,18 +38,23 @@ fi
 
 
 ##  fmriprep input
-#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep-multises/
-FMRIPREPINPUT=$1
-if [[ -z ${FMRIPREPINPUT} ]]
+#e.g. FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep-multises
+
+FMRIPREP_BOOTSTRAP_DIR=$1
+FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${FMRIPREP_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is an identifier of the fMRIPrep output zips"
+    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
 
-if [[ ! -d "${FMRIPREPINPUT}/output_ria/alias/data" ]]
+# Is it a directory on the filesystem?
+FMRIPREP_INPUT_METHOD=clone
+if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
 then
     echo "There must be alias in the output ria store that points to the"
-    echo "fMRIPrep output dataset"
+    echo "fmriprep output dataset"
     # exit 1
 fi
 
