@@ -288,7 +288,6 @@ echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
 
 cat >> code/concat_outputs.sh << "EOT"
-
 # set up concat_ds and run concatenator on it
 cd ${CBICA_TMPDIR}
 datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
@@ -297,11 +296,9 @@ wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/conc
 cd ..
 datalad save -m "added concatenator script"
 datalad run -i 'csvs/*' -o 'concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py concat_ds/csvs ${PROJECT_ROOT}/FMRIPREP_AUDIT.csv"
-
 datalad save -m "generated report"
 # push changes
 datalad push
-
 # remove concat_ds
 git annex dead here
 cd ..
