@@ -38,7 +38,7 @@ fi
 
 
 ##  fmriprep input
-#e.g. FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep-multises
+#e.g. FMRIPREP_BOOTSTRAP_DIR=~/testing/hrc_exemplars/fmriprep-multises
 
 FMRIPREP_BOOTSTRAP_DIR=$1
 FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
@@ -82,7 +82,7 @@ datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
 echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ria+file://${FMRIPREPINPUT}/output_ria#~data inputs/data
+datalad clone -d . ria+file://${FMRIPREP_INPUT}/output_ria#~data inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
