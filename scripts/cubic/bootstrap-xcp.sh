@@ -55,7 +55,6 @@ then
     # exit 1
 fi
 
-
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
@@ -79,16 +78,16 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
+if [[ "${FMRIPREP_INPUT_METHOD}" == "clone" ]]
 then
     echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${FMRIPREPINPUT} inputs/data
+    datalad clone -d . ${FMRIPREP_INPUT} inputs/data
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
     echo "WARNING: copying input data into repository"
     mkdir -p inputs/data
-    cp -r ${FMRIPREPINPUT}/* inputs/data
+    cp -r ${FMRIPREP_INPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
