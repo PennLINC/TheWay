@@ -179,7 +179,7 @@ datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}*fmriprep*.zip \
     --explicit \
-    -o ${subid}_xcp-0-0-4.zip \
+    -o ${subid}_xcp-0-0-8.zip \
     -m "xcp-abcd-run ${subid}" \
     "bash ./code/xcp_zip.sh ${subid}"
 
@@ -218,12 +218,12 @@ cd inputs/data
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
 cd xcp
-7z a ../${subid}_xcp-0-0-4.zip xcp_abcd
+7z a ../${subid}_xcp-0-0-8.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 EOT
 
