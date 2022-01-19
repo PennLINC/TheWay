@@ -171,7 +171,7 @@ datalad run \
     -i code/aslprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/aslprep-0-14-3/image \
+    -i pennlinc-containers/.datalad/environments/aslprep-0-2-7/image \
     --explicit \
     -o ${subid}_aslprep-0.2.7.zip \
     -m "aslprep:0.2.7 ${subid}" \
@@ -204,15 +204,13 @@ singularity run --cleanenv -B ${PWD} \
     inputs/data \
     prep \
     participant \
-    -v -v \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wkdir \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \
-    --fs-license-file code/license.txt \
     --skip-bids-validation \
+    --output-spaces MNI152NLin6Asym:res-2 \
     --participant-label "$subid" \
-    --unringing-method mrdegibbs \
-    --output-resolution 1.5
+    --force-bbr -v -v
 cd prep
 7z a ../${subid}_aslprep-0.2.7.zip aslprep
 rm -rf prep .git/tmp/wkdir
