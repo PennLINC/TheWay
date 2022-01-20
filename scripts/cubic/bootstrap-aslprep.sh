@@ -119,8 +119,7 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l s_vmem=30.5G
-#$ -l tmpfree=300G
+#$ -l tmpfree=200G
 #$ -pe threaded 6
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -208,6 +207,7 @@ singularity run --cleanenv -B ${PWD} \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \
     --skip-bids-validation \
+    --fs-license-file code/license.txt \
     --output-spaces MNI152NLin6Asym:res-2 \
     --participant-label "$subid" \
     --force-bbr -v -v
