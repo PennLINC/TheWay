@@ -147,7 +147,7 @@ subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'fmriprep/*' -d .
 
-desired_file=fmriprep/${subid}/ses-PNC1/func/${subid}_ses-PNC1_task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii
+desired_file=fmriprep/${subid}/*/func/*task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii
 
 # check if the desired file exists
 if [ -e ${desired_file} ]; then
