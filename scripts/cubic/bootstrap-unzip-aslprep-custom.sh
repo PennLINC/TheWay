@@ -1,7 +1,7 @@
 ## NOTE ##
 # This workflow is derived from the Datalad Handbook
 
-## Ensure the environment is ready to bootstrap the analysis workspace
+## Ensure your environment is ready to bootstrap the analysis workspace
 # Check that we have conda installed
 
 DATALAD_VERSION=$(datalad --version)
