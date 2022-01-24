@@ -18,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/XCP
+PROJECTROOT=${PWD}/ASLPREP
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -38,7 +38,7 @@ DERIVATIVE_BOOTSTRAP_DIR=$1
 DERIVATIVE_INPUT=ria+file://${DERIVATIVE_BOOTSTRAP_DIR}"/output_ria#~data"
 if [[ -z ${DERIVATIVE_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is the path to the xcp bootstrap directory."
+    echo "Required argument is the path to the aslprep bootstrap directory."
     echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
