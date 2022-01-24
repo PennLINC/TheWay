@@ -116,7 +116,7 @@ datalad run \
     -i code/get_files.sh \
     -i inputs/data/${subid}_aslprep*.zip \
     --explicit \
-    -o ${subid}*space-MNI152NLin6Asym*CBF* \
+    -o ${subid}*space-MNI152NLin6Asym*cbf* \
     -o ${subid}*space-MNI152NLin6Asym*desc-brain*_mask* \
     -m "unzipped ${subid}" \
     "bash code/get_files.sh inputs/data/${subid}_aslprep*.zip"
@@ -147,7 +147,7 @@ subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'aslprep/*' -d .
 
-cp aslprep/${subid}/*/func/*space-MNI152NLin6Asym*CBF* .
+cp aslprep/${subid}/*/func/*space-MNI152NLin6Asym*cbf* .
 cp aslprep/${subid}/*/func/*space-MNI152NLin6Asym*desc-brain*_mask* .
 
 # remove unzip dir
