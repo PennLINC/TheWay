@@ -147,8 +147,8 @@ subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'aslprep/*' -d .
 
-cp aslprep/${subid}/*/func/*space-MNI152NLin6Asym*cbf* .
-cp aslprep/${subid}/*/func/*space-MNI152NLin6Asym*desc-brain*_mask* .
+cp aslprep/${subid}/*/perf/*space-MNI152NLin6Asym*cbf* .
+cp aslprep/${subid}/*/perf/*space-MNI152NLin6Asym*desc-brain*_mask* .
 
 # remove unzip dir
 rm -rf aslprep
