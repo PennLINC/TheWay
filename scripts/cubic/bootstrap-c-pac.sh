@@ -23,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/c-pac-1.8.2-dev
+PROJECTROOT=${PWD}/c-pac-1.8.3
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -109,123 +109,6 @@ fi
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 
-## The C-PAC pipeline config
-cat > code/RBC_pipeline.yml << "EOT"
-FROM: fx-options
-
-pipeline_setup:
-
-  pipeline_name: RBC
-
-functional_preproc:
-
-  despiking:
-
-    run: [On]
-
-nuisance_corrections: 
-
-  2-nuisance_regression: 
-
-    Regressors:
-      - Name: Regressor-with-GSR
-        Bandpass:
-          bottom_frequency: 0.01
-          top_frequency: 0.1
-        CerebrospinalFluid:
-          erode_mask: false
-          extraction_resolution: 2
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-          summary: Mean
-        GlobalSignal:
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-          summary: Mean
-        Motion:
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-        WhiteMatter:
-          erode_mask: false
-          extraction_resolution: 2
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-          summary: Mean
-        PolyOrt: 
-          degree: 2
-
-      - Name: Regressor-with-aCompCor
-        Bandpass:
-          bottom_frequency: 0.01
-          top_frequency: 0.1
-        CerebrospinalFluid:
-          erode_mask: false
-          extraction_resolution: 2
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-          summary: Mean
-        aCompCor:
-          summary:
-            method: DetrendPC
-            components: 5
-          tissues:
-            - WhiteMatter
-            - CerebrospinalFluid
-          extraction_resolution: 2
-        Motion:
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-        WhiteMatter:
-          erode_mask: false
-          extraction_resolution: 2
-          include_delayed: true
-          include_delayed_squared: true
-          include_squared: true
-          summary: Mean
-        PolyOrt: 
-          degree: 2
-
-timeseries_extraction:
-
-  run: On
-
-  tse_roi_paths:
-    # AAL
-    /ndmg_atlases/label/Human/AAL_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # Atlases
-    /ndmg_atlases/label/Human/Brodmann_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Glasser_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # Slab
-    /ndmg_atlases/label/Human/Slab907_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # HO: Thresholded
-    /ndmg_atlases/label/Human/HarvardOxfordcort-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/HarvardOxfordsub-maxprob-thr25_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # Jeulich
-    /ndmg_atlases/label/Human/Juelich_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # CC
-    /cpac_templates/CC200.nii.gz: Avg, PearsonCorr, PartialCorr
-    /cpac_templates/CC400.nii.gz: Avg, PearsonCorr, PartialCorr
-    # Shaefer
-    /ndmg_atlases/label/Human/Schaefer1000_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Schaefer200_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Schaefer300_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Schaefer400_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    # Networks
-    #  Yeo
-    /ndmg_atlases/label/Human/Yeo-17-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Yeo-17_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Yeo-7-liberal_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    /ndmg_atlases/label/Human/Yeo-7_space-MNI152NLin6_res-1x1x1.nii.gz: Avg, PearsonCorr, PartialCorr
-    #  Smith 2009
-    /cpac_templates/Smith_space-MNI152NLin6_res-3x3x3_desc-thresh3_mask.nii.gz: Avg, PearsonCorr, PartialCorr
-EOT
-
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
@@ -295,10 +178,10 @@ datalad run \
     -i code/RBC_pipeline.yml \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/cpac-1-8-2-dev/image \
+    -i pennlinc-containers/.datalad/environments/cpac-1-8-3/image \
     --explicit \
-    -o ${subid}_c-pac-1.8.2-dev.zip \
-    -m "C-PAC:1.8.2-dev ${subid}" \
+    -o ${subid}_c-pac-1.8.3.zip \
+    -m "C-PAC:1.8.3 ${subid}" \
     "bash ./code/c-pac_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -330,17 +213,17 @@ mkdir -p ${subid}_outputs
 singularity run --cleanenv \
     -B ${PWD} \
     -B ${PWD}/${subid}_outputs:/outputs \
-    pennlinc-containers/.datalad/environments/cpac-1-8-2-dev/image \
+    pennlinc-containers/.datalad/environments/cpac-1-8-3/image \
     inputs/data \
     /outputs \
     participant \
-    --pipeline_file code/RBC_pipeline.yml \
+    --preconfig rbc-options \
     --skip_bids_validator \
     --n_cpus 4 \
     --mem_gb 32 \
     --participant_label "$subid"
 
-7z a ${subid}_c-pac-1.8.2-dev.zip ${subid}_outputs
+7z a ${subid}_c-pac-1.8.3.zip ${subid}_outputs
 rm -rf ${subid}_outputs
 
 EOT
