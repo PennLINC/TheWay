@@ -34,13 +34,21 @@ fi
 mkdir -p $PROJECTROOT
 
 ## S3 downloaded dir will be the path to the data downloaded from S3
-S3_DOWNLOADED_DIR=$1
-S3_DATA=ria+file://${S3_DOWNLOADED_DIR}"/output_ria#~data"
-if [[ -z ${S3_DOWNLOADED_DIR} ]]
+BIDSINPUT=$1
+if [[ -z ${BIDSINPUT} ]]
 then
-    echo "Required argument is the path to the xcp bootstrap directory."
-    echo "This directory should contain analysis/, input_ria/ and output_ria/."
+    echo "Required argument is an identifier of the BIDS source"
     # exit 1
+fi
+
+# Is it a directory on the filesystem?
+BIDS_INPUT_METHOD=clone
+if [[ -d "${BIDSINPUT}" ]]
+then
+    # Check if it's datalad
+    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
+    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
 cd ${PROJECTROOT}
@@ -63,7 +71,7 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-datalad install -d . -r --source ${S3_DATA} inputs/data
+datalad install -d . -r --source ${BIDSINPUT} inputs/data
 
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
