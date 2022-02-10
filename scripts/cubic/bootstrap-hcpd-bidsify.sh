@@ -71,10 +71,19 @@ datalad create-sibling-ria -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
-datalad install -d . -r --source ${BIDSINPUT} inputs/data
-
-# amend the previous commit with a nicer commit message
-git commit --amend -m 'Register input data dataset as a subdataset'
+# register the input dataset
+if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
+then
+    echo "Cloning input dataset into analysis dataset"
+    datalad clone -d . ${BIDSINPUT} inputs/data
+    # amend the previous commit with a nicer commit message
+    git commit --amend -m 'Register input data dataset as a subdataset'
+else
+    echo "WARNING: copying input data into repository"
+    mkdir -p inputs/data
+    cp -r ${BIDSINPUT}/* inputs/data
+    datalad save -r -m "added input data"
+fi
 
 SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 )
 if [ -z "${SUBJECTS}" ]
