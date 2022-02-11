@@ -82,7 +82,15 @@ fi
 
 # Clone the containers dataset. If specified on the command, use that path
 CONTAINERDS=$2
-datalad install -d . --source ${CONTAINERDS} containers
+## Add the containers as a subdataset
+cd ${PROJECTROOT}
+
+if [[ ! -z "${CONTAINERDS}" ]]; then
+    datalad clone ${CONTAINERDS} pennlinc-containers
+else
+    echo ERROR: requires a container dataset
+    exit 1
+fi
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
@@ -153,7 +161,7 @@ datalad run \
     -i code/qsiprep_zip.sh \
     -i inputs/data/${subid}/${sesid} \
     -i "inputs/data/*json" \
-    -i containers/images/bids/bids-qsiprep--0.14.3.sing \
+    -i -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \ \
     --expand inputs \
     --explicit \
     -o ${subid}_${sesid}_qsiprep-0.14.3.zip \
