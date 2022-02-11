@@ -164,8 +164,8 @@ datalad run \
     -i -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \ \
     --expand inputs \
     --explicit \
-    -o ${subid}_${sesid}_qsiprep-0.14.3.zip \
-    -m "qsiprep:0.14.3 ${subid} ${sesid}" \
+    -o ${subid}_${sesid}_qsiprep-0.14.2.zip \
+    -m "qsiprep:0.14.2 ${subid} ${sesid}" \
     "bash ./code/qsiprep_zip.sh ${subid} ${sesid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -213,7 +213,7 @@ sed -i "s/ses-//g" ${filterfile}
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    containers/images/bids/bids-qsiprep--0.14.3.sing \
+    pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     inputs/data \
     prep \
     participant \
@@ -228,8 +228,7 @@ singularity run --cleanenv -B ${PWD} \
     --output-resolution 1.8
 
 cd prep
-7z a ../${subid}_${sesid}_qsiprep-0.14.3.zip qsiprep
-7z a ../${subid}_${sesid}_freesurfer-0.14.3.zip freesurfer
+7z a ../${subid}_${sesid}_qsiprep-0.14.2.zip qsiprep
 rm -rf prep .git/tmp/wdir
 rm ${filterfile}
 
