@@ -92,6 +92,9 @@ else
     exit 1
 fi
 
+cd ${PROJECTROOT}/analysis
+datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
+
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
