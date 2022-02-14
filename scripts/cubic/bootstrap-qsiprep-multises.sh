@@ -226,6 +226,7 @@ singularity run --cleanenv -B ${PWD} \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \
     --skip-bids-validation \
+    --bids-filter-file "${filterfile}" \
     --participant-label "$subid" \
     --unringing-method mrdegibbs \
     --output-resolution 2.0
