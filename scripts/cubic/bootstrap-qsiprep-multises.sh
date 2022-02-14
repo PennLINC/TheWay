@@ -164,7 +164,7 @@ datalad run \
     -i code/qsiprep_zip.sh \
     -i inputs/data/${subid}/${sesid} \
     -i "inputs/data/*json" \
-    -i -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \ \
+    -i pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     --expand inputs \
     --explicit \
     -o ${subid}_${sesid}_qsiprep-0.14.2.zip \
