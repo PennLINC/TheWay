@@ -202,7 +202,7 @@ sesid="$2"
 filterfile=${PWD}/${sesid}_filter.json
 echo "{" > ${filterfile}
 echo "'fmap': {'datatype': 'fmap'}," >> ${filterfile}
-echo "'dwi': {'datatype': 'func', 'session': '$sesid', 'suffix': 'dwi'}," >> ${filterfile}
+echo "'dwi': {'datatype': 'dwi', 'session': '$sesid', 'suffix': 'dwi'}," >> ${filterfile}
 echo "'sbref': {'datatype': 'func', 'session': '$sesid', 'suffix': 'sbref'}," >> ${filterfile}
 echo "'flair': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'FLAIR'}," >> ${filterfile}
 echo "'t2w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T2w'}," >> ${filterfile}
@@ -228,7 +228,7 @@ singularity run --cleanenv -B ${PWD} \
     --skip-bids-validation \
     --participant-label "$subid" \
     --unringing-method mrdegibbs \
-    --output-resolution 1.8
+    --output-resolution 2.0
 
 cd prep
 7z a ../${subid}_${sesid}_qsiprep-0.14.2.zip qsiprep
