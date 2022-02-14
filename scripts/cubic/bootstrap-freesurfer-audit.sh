@@ -40,42 +40,9 @@ then
     # exit 1
 fi
 
-# Is it a directory on the filesystem?
-FREESURFER_INPUT_METHOD=clone
-if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
-then
-    echo "There must be alias in the output ria store that points to the"
-    echo "freesurfer output dataset"
-    # exit 1
-fi
-
-# Check that there are some freesurfer zip files present in the input
-# If you only need freesurfer, comment this out
-# FREESURFER_ZIPS=$(cd ${FREESURFER_INPUT} && ls *freesurfer*.zip)
-# if [[ -z "${FREESURFER_ZIPS}" ]]; then
-#    echo No freesurfer zip files found in ${FREESURFER_INPUT}
-#    exit 1
-# fi
-
-# Check that freesurfer data exists. If you only need freesurfer zips, comment
-# this out
-# FREESURFER_ZIPS=$(cd ${FREESURFER_INPUT} && ls *freesurfer*.zip)
-# if [[ -z "${FREESURFER_ZIPS}" ]]; then
-#    echo No freesurfer zip files found in ${FREESURFER_INPUT}
-#    exit 1
-# fi
-
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
-
-
-# Create a dataset with the logs in it
-mkdir freesurfer_logs
-cd freesurfer_logs
-datalad create -D "Logs from the freesurfer runs"
-cp ${FMRIPREP_BOOTSTRAP_DIR}/analysis/logs/* .
-datalad save -m "add logs"
 
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
@@ -97,12 +64,12 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 datalad install -d . -r --source ${FREESURFER_INPUT} inputs/data
-datalad install -d . -r --source ${PROJECTROOT}/freesurfer_logs inputs/freesurfer_logs
+datalad uninstall inputs/data/inputs/data
 
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
+SUBJECTS=$(find inputs/data -name '*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -113,8 +80,7 @@ fi
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=5G
-#$ -l s_vmem=3.5G
+#$ -l h_vmem=8G
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -125,7 +91,11 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+# cd ${CBICA_TMPDIR}
+
+TMPDIR=${CBICA_TMPDIR}
+cd $TMPDIR
+
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -136,17 +106,8 @@ git remote add outputstore "$pushgitremote"
 git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
-BIDS_DIR=${PWD}/inputs/data/inputs/data
 ZIPS_DIR=${PWD}/inputs/data
-ERROR_DIR=${PWD}/inputs/freesurfer_logs
 
-CSV_DIR=csvs
-mkdir ${CSV_DIR}
-TMP_DIR=tmp
-mkdir ${TMP_DIR}
-
-output_csv=${CSV_DIR}/${subid}_freesurfer_audit.csv
-output_png=${CSV_DIR}/${subid}_T1w.png
 datalad get -n inputs/data
 FS_INPUT_ZIP=$(ls inputs/data/${subid}_freesurfer*.zip | cut -d '@' -f 1 || true)
 if [ ! -z "${FS_INPUT_ZIP}" ]; then
@@ -162,28 +123,26 @@ echo DATALAD RUN INPUT
 echo ${FS_INPUT_ZIP}
 echo ${FMRI_INPUT_ZIP}
 datalad run \
-    -i code/fs_euler_checker_and_plots.py \
+    -i code/fs_euler_checker_and_plots_simplified.py \
     ${FS_INPUT_ZIP} \
     ${FMRI_INPUT_ZIP} \
-    -i inputs/data/inputs/data/${subid} \
-    -i inputs/freesurfer_logs/*${subid}* \
     --explicit \
-    -o ${output_png} \
-    -o ${output_csv} \
+    -o csvs \
+    -o svg \
     -m "freesurfer-audit ${subid}" \
-    "python code/fs_euler_checker_and_plots.py ${subid} ${ZIPS_DIR} ${TMP_DIR} ${output_png} ${output_csv}" 
-    
+    "python code/fs_euler_checker_and_plots_simplified.py ${subid} ${ZIPS_DIR}"
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir 
+# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
+datalad uninstall --nocheck --if-dirty ignore -r inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -195,78 +154,57 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fs_euler_checker_and_plots.py
-mv fs_euler_checker_and_plots.py code/
-chmod +x code/fs_euler_checker_and_plots.py
+wget https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/generic/fs_euler_checker_and_plots_simplified.py
+mv fs_euler_checker_and_plots_simplified.py code/
+chmod +x code/fs_euler_checker_and_plots_simplified.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
-datalad save -m "Add logs from freesurfer runs"
-
-################################################################################
-# SGE SETUP START - remove or adjust to your needs
-################################################################################
+# Add a script for merging outputs
+MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
 cat > code/merge_outputs.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 EOT
 
+
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
+wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
-cat >> code/merge_outputs.sh << "EOT"
-datalad clone ${outputsource} merge_ds
-cd merge_ds
-NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
-echo "Found $NBRANCHES branches to merge"
-gitref=$(git show-ref master | cut -d ' ' -f1 | head -n 1)
-# query all branches for the most recent commit and check if it is identical.
-# Write all branch identifiers for jobs without outputs into a file.
-for i in $(git branch -a | grep job- | sort); do [ x"$(git show-ref $i \
-  | cut -d ' ' -f1)" = x"${gitref}" ] && \
-  echo $i; done | tee code/noresults.txt | wc -l
-for i in $(git branch -a | grep job- | sort); \
-  do [ x"$(git show-ref $i  \
-     | cut -d ' ' -f1)" != x"${gitref}" ] && \
-     echo $i; \
-done | tee code/has_results.txt
-mkdir -p code/merge_batches
-num_branches=$(wc -l < code/has_results.txt)
-CHUNKSIZE=5000
-set +e
-num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-[[ $num_chunks == 0 ]] && num_chunks=1
-set -e -x
-for chunknum in $(seq 1 $num_chunks)
-do
-    startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
-    endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
-    batch_file=code/merge_branches_$(printf %04d ${chunknum}).txt
-    [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
-    branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
-    echo ${branches} > ${batch_file}
-    git merge -m "freesurfer results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
-done
-# Push the merge back
-git push
-# Get the file availability info
-git annex fsck --fast -f output-storage
-# This should not print anything
-MISSING=$(git annex find --not --in output-storage)
-if [[ ! -z "$MISSING" ]]
-then
-    echo Unable to find data for $MISSING
-    exit 1
-fi
-# stop tracking this branch
-git annex dead here
-datalad push --data nothing
-echo SUCCESS
+##### concat_outputs.sh START ####
+
+cat > code/concat_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
 EOT
 
+echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
+
+cat >> code/concat_outputs.sh << "EOT"
+# set up concat_ds and run concatenator on it
+cd ${CBICA_TMPDIR}
+datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
+cd concat_ds/code
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+cd ..
+datalad save -m "added concatenator script"
+datalad run -i 'csvs/*' -o 'concat_ds/group_report.csv' --expand inputs --explicit "python code/concatenator.py concat_ds/csvs ${PROJECT_ROOT}/XCP_AUDIT.csv"
+datalad save -m "generated report"
+# push changes
+datalad push
+# remove concat_ds
+git annex dead here
+cd ..
+chmod +w -R concat_ds
+rm -rf concat_ds
+echo SUCCESS
+
+#### concat_output.sh END ####
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
@@ -294,6 +232,11 @@ datalad uninstall -r --nocheck inputs/data
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

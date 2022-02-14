@@ -37,11 +37,21 @@ then
 fi
 
 ##  hcp input
-HCPINPUT=https://github.com/datalad-datasets/human-connectome-project-openaccess
-if [[ -z ${HCPINPUT} ]]
+BIDSINPUT=$1
+if [[ -z ${BIDSINPUT} ]]
 then
     echo "Required argument is an identifier of the BIDS source"
     # exit 1
+fi
+
+# Is it a directory on the filesystem?
+BIDS_INPUT_METHOD=clone
+if [[ -d "${BIDSINPUT}" ]]
+then
+    # Check if it's datalad
+    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
+                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
+    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
 fi
 
 ## Start making things
@@ -87,7 +97,7 @@ datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 
 echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ${HCPINPUT} inputs/data
+datalad clone -d . ${BIDSINPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
@@ -126,11 +136,8 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=30G
-#$ -l s_vmem=30G
-#$ -l tmpfree=100G
-#$ -pe threaded 4
-#$ -j y
+#$ -l h_vmem=12G
+
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -141,9 +148,9 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+#cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -166,6 +173,7 @@ cd ds
 git remote add outputstore "$pushgitremote"
 # all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
+echo GIT CHECKOUT FINISHED
 # we pull down the input subject manually in order to discover relevant
 # files. We do this outside the recorded call, because on a potential
 # re-run we want to be able to do fine-grained recomputing of individual
@@ -175,17 +183,21 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-sleep $[ ( $RANDOM % 600 ) + 1 ]s
+echo GET CONTAINERS FINISHED
 datalad run \
     -i code/xcp-hcpya-bootstrap.py \
     -i code/dataset_description.json \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*.nii* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Movement* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*LR.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*RL.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_AbsoluteRMS.txt \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_Regressors.txt \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*WM.txt* \
     -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
+    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/brainmask_fs.2.nii.gz \
     --explicit \
     -o ${subid}_xcp-0-0-4.zip \
     -m "xcp-abcd-run ${subid}" \
@@ -195,12 +207,11 @@ datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir 
+# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-
+datalad uninstall --nocheck --if-dirty ignore -r inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -247,6 +258,7 @@ for subject in ${SUBJECTS}; do
   ${PWD}/code/participant_job.sh \
   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
 done
+chmod a+x code/qsub_calls.sh
 datalad save -m "SGE submission setup" code/ .gitignore
 
 ################################################################################
@@ -276,3 +288,7 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
+
+#submit the jobs as a job 
+#chmod a+x code/qsub_calls.sh
+#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/qsub_calls.sh

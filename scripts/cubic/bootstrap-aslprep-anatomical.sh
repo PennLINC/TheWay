@@ -22,7 +22,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/qsiprep
+PROJECTROOT=${PWD}/aslprep
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -119,40 +119,32 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l s_vmem=30.5G
-#$ -l tmpfree=300G
+#$ -l tmpfree=200G
 #$ -pe threaded 6
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
-
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
-
 # Set up the remotes and get the subject id from the call
 dssource="$1"
 pushgitremote="$2"
 subid="$3"
-
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
 # cd /cbica/comp_space/$(basename $HOME)
-
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
-
 # get the analysis dataset, which includes the inputs as well
 # importantly, we do not clone from the lcoation that we want to push the
 # results to, in order to avoid too many jobs blocking access to
 # the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
-
 # all following actions are performed in the context of the superdataset
 cd ds
-
 # in order to avoid accumulation temporary git-annex availability information
 # and to avoid a syncronization bottleneck by having to consolidate the
 # git-annex branch across jobs, we will only push the main tracking branch
@@ -162,83 +154,69 @@ cd ds
 # and we want to avoid progressive slowdown. Instead we only ever push
 # a unique branch per each job (subject AND process specific name)
 git remote add outputstore "$pushgitremote"
-
 # all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
-
 # we pull down the input subject manually in order to discover relevant
 # files. We do this outside the recorded call, because on a potential
 # re-run we want to be able to do fine-grained recomputing of individual
 # outputs. The recorded calls will have specific paths that will enable
 # recomputation outside the scope of the original setup
 datalad get -n "inputs/data/${subid}"
-
 # Reomve all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
-
 # ------------------------------------------------------------------------------
 # Do the run!
-
 datalad run \
-    -i code/qsiprep_zip.sh \
+    -i code/aslprep_zip.sh \
     -i inputs/data/${subid} \
     -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
+    -i pennlinc-containers/.datalad/environments/aslprep-0-2-7/image \
     --explicit \
-    -o ${subid}_qsiprep-0.14.3.zip \
-    -m "qsiprep:0.14.3 ${subid}" \
-    "bash ./code/qsiprep_zip.sh ${subid}"
-
+    -o ${subid}_aslprep-0.2.7.zip \
+    -m "aslprep:0.2.7 ${subid}" \
+    "bash ./code/aslprep_zip.sh ${subid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
-
 # remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-
 datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
 git annex dead here
 cd ../..
 rm -rf $BRANCH
-
 echo SUCCESS
 # job handler should clean up workspace
 EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/qsiprep_zip.sh << "EOT"
+cat > code/aslprep_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
-
 subid="$1"
-
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
+    pennlinc-containers/.datalad/environments/aslprep-0-2-7/image \
     inputs/data \
     prep \
     participant \
-    -v -v \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wkdir \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \
-    --fs-license-file code/license.txt \
     --skip-bids-validation \
+    --fs-license-file code/license.txt \
+    --output-spaces MNI152NLin6Asym:res-2 \
     --participant-label "$subid" \
-    --unringing-method mrdegibbs \
-    --output-resolution 1.5
-
+    --force-bbr -v -v
 cd prep
-7z a ../${subid}_qsiprep-0.14.3.zip qsiprep
+7z a ../${subid}_aslprep-0.2.7.zip aslprep
 rm -rf prep .git/tmp/wkdir
-
 EOT
 
-chmod +x code/qsiprep_zip.sh
+chmod +x code/aslprep_zip.sh
 cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
@@ -291,6 +269,11 @@ fi
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

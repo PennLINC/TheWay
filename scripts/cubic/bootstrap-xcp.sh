@@ -37,25 +37,23 @@ then
 fi
 
 
-##  fmriprep input
-#FMRIPREPINPUT=~/testing/hrc_exemplars/fmriprep/merge_ds
-FMRIPREPINPUT=$1
-if [[ -z ${FMRIPREPINPUT} ]]
+FMRIPREP_BOOTSTRAP_DIR=$1
+FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${FMRIPREP_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
 
 # Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${FMRIPREPINPUT}" ]]
+FMRIPREP_INPUT_METHOD=clone
+if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
 then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${FMRIPREPINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
+    echo "There must be alias in the output ria store that points to the"
+    echo "fmriprep output dataset"
+    # exit 1
 fi
-
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -80,16 +78,16 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
+if [[ "${FMRIPREP_INPUT_METHOD}" == "clone" ]]
 then
     echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${FMRIPREPINPUT} inputs/data
+    datalad clone -d . ${FMRIPREP_INPUT} inputs/data
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
     echo "WARNING: copying input data into repository"
     mkdir -p inputs/data
-    cp -r ${FMRIPREPINPUT}/* inputs/data
+    cp -r ${FMRIPREP_INPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
@@ -100,33 +98,15 @@ then
     # exit 1
 fi
 
+set +u
+CONTAINERDS=$2
+set -u
+#if [[ ! -z "${CONTAINERDS}" ]]; then
 cd ${PROJECTROOT}
-
-# Clone the containers dataset. If specified on the command, use that path
-
-#MUST BE AS NOT RBC USER
-# build the container in /cbica/projects/RBC/dropbox
-# singularity build xcp-abcd-0.0.1.sif docker://pennlinc/xcp_abcd:0.0.4
-
-#AS RBC
-# then copy to /cbica/projects/RBC/xcp-abcd-container
-# datalad create -D "xcp-abcd container".
-
-# do that actual copy
-#datalad containers-add --url ~/dropbox/xcp-abcd-0.0.4.sif xcp-abcd-0-0-4 --update
-
-#can delete
-#rm /cbica/projects/RBC/dropbox/xcp-abcd-0.0.4.sif
-
-CONTAINERDS=~/xcp-abcd-container
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-else
-    echo "No containers dataset specified, attempting to clone from pmacs"
-    datalad clone \
-        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
-        pennlinc-containers
-fi
+datalad clone ${CONTAINERDS} pennlinc-containers
+## Add the containers as a subdataset
+cd pennlinc-containers
+datalad get -r .
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -136,8 +116,9 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l s_vmem=32G
 #$ -l tmpfree=100G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -198,7 +179,7 @@ datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}*fmriprep*.zip \
     --explicit \
-    -o ${subid}_xcp-0-0-4.zip \
+    -o ${subid}_xcp-0-0-8.zip \
     -m "xcp-abcd-run ${subid}" \
     "bash ./code/xcp_zip.sh ${subid}"
 
@@ -212,8 +193,8 @@ git annex dead here
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
+datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -233,16 +214,16 @@ subid="$1"
 wd=${PWD}
 
 cd inputs/data
-7z x ${subid}_fmriprep-20.2.1.zip
+7z x ${subid}_fmriprep-20.2.3.zip
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
 cd xcp
-7z a ../${subid}_xcp-0-0-4.zip xcp_abcd
+7z a ../${subid}_xcp-0-0-8.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 EOT
 
@@ -291,7 +272,7 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
+if [ "${FMRIPREP_INPUT_METHOD}" = "clone" ]
 then
     datalad uninstall -r --nocheck inputs/data
 fi
@@ -315,6 +296,3 @@ echo SUCCESS
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
 
-
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/CCNP/fmriprep/output_ria#~data'
-# bash bootstrap-xcp.sh 'ria+file:///cbica/projects/RBC/production/PNC/fmriprep/output_ria#~data'

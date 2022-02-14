@@ -160,14 +160,14 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/fmriprep_multisites_zip_audit.py \
+    -i code/bootstrap-fmriprep-multises-audit.py \
     ${INPUT_ZIP} \
     -i inputs/data/inputs/data/${subid} \
     -i inputs/fmriprep_logs/*${subid}*${sesid}* \
     --explicit \
     -o ${output_file} \
     -m "fmriprep-audit ${subid} ${sesid}" \
-    "python code/fmriprep_multisites_zip_audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/bootstrap-fmriprep-multises-audit.py ${subid}_${sesid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -177,8 +177,8 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
+datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -190,9 +190,9 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/fmriprep_multisites_zip_audit.py
-mv fmriprep_multisites_zip_audit.py code/
-chmod +x code/fmriprep_multisites_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/bootstrap-fmriprep-multises-audit.py
+mv bootstrap-fmriprep-multises-audit.py code/
+chmod +x code/bootstrap-fmriprep-multises-audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
@@ -264,7 +264,7 @@ git annex fsck --fast -f output-storage
 set +u
 MISSING=$(git annex find --not --in output-storage)
 
-if [[ ! -z "$MISSING"]]
+if [[ ! -z "$MISSING" ]]
 then
     echo Unable to find data for $MISSING
     exit 1
@@ -277,6 +277,38 @@ echo SUCCESS
 
 EOT
 
+##### concat_outputs.sh START ####
+
+cat > code/concat_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+
+echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
+
+cat >> code/concat_outputs.sh << "EOT"
+# set up concat_ds and run concatenator on it
+cd ${CBICA_TMPDIR}
+datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
+cd concat_ds/code
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+cd ..
+datalad save -m "added concatenator script"
+datalad run -i 'csvs/*' -o '${PROJECT_ROOT}/FMRIPREP_AUDIT.csv' --expand inputs --explicit "python code/concatenator.py csvs ${PROJECT_ROOT}/FMRIPREP_AUDIT.csv"
+datalad save -m "generated report"
+# push changes
+datalad push
+# remove concat_ds
+git annex dead here
+cd ..
+chmod +w -R concat_ds
+rm -rf concat_ds
+echo SUCCESS
+
+EOT
+
+#### concat_output.sh END ####
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
@@ -307,6 +339,11 @@ datalad uninstall -r --nocheck inputs/data
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

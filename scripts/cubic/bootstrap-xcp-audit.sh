@@ -102,7 +102,7 @@ datalad install -d . -r --source ${PROJECTROOT}/xcp_logs inputs/xcp_logs
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 5 )
+SUBJECTS=$(find inputs/data/inputs/data/inputs/data -type d -name 'sub-*' | cut -d '@' -f 5| sed 's|^inputs/data/inputs/data/inputs/data/||')
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -159,14 +159,13 @@ echo DATALAD RUN INPUT
 echo ${INPUT_ZIP}
 
 datalad run \
-    -i code/XCP_zip_audit.py \
+    -i code/bootstrap_zip_audit.py \
     ${INPUT_ZIP} \
-    -i inputs/data/inputs/data/${subid} \
     -i inputs/xcp_logs/*${subid}* \
     --explicit \
     -o ${output_file} \
     -m "xcp-audit ${subid}" \
-    "python code/XCP_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file}"
+    "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} xcp"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -189,9 +188,9 @@ EOT
 chmod +x code/participant_job.sh
 
 # Sydney, please wget your audit script here!
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/XCP_zip_audit.py
-mv XCP_zip_audit.py code/
-chmod +x code/XCP_zip_audit.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/bootstrap_zip_audit.py
+mv bootstrap_zip_audit.py code/
+chmod +x code/bootstrap_zip_audit.py
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
@@ -262,7 +261,7 @@ git annex fsck --fast -f output-storage
 # This should not print anything
 MISSING=$(git annex find --not --in output-storage)
 
-if [[ ! -z "$MISSING"]]
+if [[ ! -z "$MISSING" ]]
 then
     echo Unable to find data for $MISSING
     exit 1
@@ -274,6 +273,38 @@ datalad push --data nothing
 echo SUCCESS
 
 EOT
+
+##### concat_outputs.sh START ####
+
+cat > code/concat_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+
+echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
+
+cat >> code/concat_outputs.sh << "EOT"
+# set up concat_ds and run concatenator on it
+cd ${CBICA_TMPDIR}
+datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
+cd concat_ds/code
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+cd ..
+datalad save -m "added concatenator script"
+datalad run -i 'csvs/*' -o '${PROJECT_ROOT}/XCP_AUDIT.csv' --expand inputs --explicit "python code/concatenator.py csvs ${PROJECT_ROOT}/XCP_AUDIT.csv"
+datalad save -m "generated report"
+# push changes
+datalad push
+# remove concat_ds
+git annex dead here
+cd ..
+chmod +w -R concat_ds
+rm -rf concat_ds
+echo SUCCESS
+EOT
+
+#### concat_output.sh END ####
 
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
@@ -302,6 +333,11 @@ datalad uninstall -r --nocheck inputs/data
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

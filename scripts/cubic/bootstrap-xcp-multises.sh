@@ -13,6 +13,7 @@ DATALAD_VERSION=$(datalad --version)
 
 if [ $? -gt 0 ]; then
     echo "No datalad available in your conda environment."
+    echo "Try pip install datalad"
     # exit 1
 fi
 
@@ -22,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/qsiprep
+PROJECTROOT=${PWD}/xcp-multises
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -36,22 +37,25 @@ then
 fi
 
 
-## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
+##  fmriprep input
+#e.g. FMRIPREP_BOOTSTRAP_DIR=~/testing/hrc_exemplars/fmriprep-multises
+
+FMRIPREP_BOOTSTRAP_DIR=$1
+FMRIPREP_INPUT=ria+file://${FMRIPREP_BOOTSTRAP_DIR}"/output_ria#~data"
+if [[ -z ${FMRIPREP_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is an identifier of the BIDS source"
+    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
 
 # Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
+FMRIPREP_INPUT_METHOD=clone
+if [[ ! -d "${FMRIPREP_BOOTSTRAP_DIR}/output_ria/alias/data" ]]
 then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
+    echo "There must be alias in the output ria store that points to the"
+    echo "fmriprep output dataset"
+    # exit 1
 fi
 
 
@@ -70,7 +74,6 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 # point.
 datalad create -c yoda analysis
 cd analysis
-
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
 datalad create-sibling-ria -s output "${output_store}"
@@ -78,21 +81,13 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ria+file://${FMRIPREP_INPUT}/output_ria#~data inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
-if [ -z "${SUBJECTS}" ]
+ZIPS=$(find inputs/data -name 'sub-*fmriprep*' | cut -d '/' -f 3 | sort)
+if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
@@ -107,8 +102,10 @@ CONTAINERDS=$2
 if [[ ! -z "${CONTAINERDS}" ]]; then
     datalad clone ${CONTAINERDS} pennlinc-containers
 else
-    echo ERROR: requires a container dataset
-    exit 1
+    echo "No containers dataset specified, attempting to clone from pmacs"
+    datalad clone \
+        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
+        pennlinc-containers
 fi
 
 cd ${PROJECTROOT}/analysis
@@ -118,38 +115,33 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=32G
-#$ -l s_vmem=30.5G
-#$ -l tmpfree=300G
-#$ -pe threaded 6
+#$ -l h_vmem=25G
+#$ -l tmpfree=200G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
-
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
-
 # Set up the remotes and get the subject id from the call
 dssource="$1"
 pushgitremote="$2"
 subid="$3"
-
+sesid="$4"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
 # cd /cbica/comp_space/$(basename $HOME)
-
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}"
+BRANCH="job-${JOB_ID}-${subid}-${sesid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
-
 # get the analysis dataset, which includes the inputs as well
 # importantly, we do not clone from the lcoation that we want to push the
 # results to, in order to avoid too many jobs blocking access to
 # the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
-
 # all following actions are performed in the context of the superdataset
 cd ds
 
@@ -171,74 +163,59 @@ git checkout -b "${BRANCH}"
 # re-run we want to be able to do fine-grained recomputing of individual
 # outputs. The recorded calls will have specific paths that will enable
 # recomputation outside the scope of the original setup
-datalad get -n "inputs/data/${subid}"
-
-# Reomve all subjects we're not working on
-(cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
 
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad run \
-    -i code/qsiprep_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
-    --explicit \
-    -o ${subid}_qsiprep-0.14.3.zip \
-    -m "qsiprep:0.14.3 ${subid}" \
-    "bash ./code/qsiprep_zip.sh ${subid}"
+datalad get -r pennlinc-containers
 
+datalad run \
+    -i code/xcp_zip.sh \
+    -i inputs/data/${subid}_${sesid}_fmriprep*.zip \
+    --explicit \
+    -o ${subid}_${sesid}_xcp-0-0-4.zip \
+    -m "xcp-abcd-run ${subid} ${sesid}" \
+    "bash ./code/xcp_zip.sh ${subid} ${sesid}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
-
-# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-
 datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
 git annex dead here
 cd ../..
 rm -rf $BRANCH
-
 echo SUCCESS
 # job handler should clean up workspace
 EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/qsiprep_zip.sh << "EOT"
+cat > code/xcp_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
-
 subid="$1"
+sesid="$2"
+wd=${PWD}
+
+cd inputs/data
+7z x ${subid}_${sesid}_fmriprep-20.2.3.zip
+cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
-    inputs/data \
-    prep \
-    participant \
-    -v -v \
-    -w ${PWD}/.git/wkdir \
-    --n_cpus $NSLOTS \
-    --stop-on-first-crash \
-    --fs-license-file code/license.txt \
-    --skip-bids-validation \
-    --participant-label "$subid" \
-    --unringing-method mrdegibbs \
-    --output-resolution 1.5
-
-cd prep
-7z a ../${subid}_qsiprep-0.14.3.zip qsiprep
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-4/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
+cd xcp
+7z a ../${subid}_${sesid}_xcp-0-0-4.zip xcp_abcd
 rm -rf prep .git/tmp/wkdir
 
 EOT
 
-chmod +x code/qsiprep_zip.sh
+chmod +x code/xcp_zip.sh
 cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
@@ -247,13 +224,12 @@ echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
+# Add a script for merging outputs
+MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
 cat > code/merge_outputs.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 EOT
-
-# Add a script for merging outputs
-MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
@@ -263,14 +239,19 @@ wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
+
 echo '#!/bin/bash' > code/qsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-    echo "qsub -cwd ${env_flags} -N qp${subject} ${eo_args} \
+
+
+for zip in ${ZIPS}; do
+    subject=`echo ${zip} | cut -d '_' -f 1` 
+    session=`echo ${zip} | cut -d '_' -f 2` 
+    echo "qsub -cwd ${env_flags} -N xcp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject}" >> code/qsub_calls.sh
+    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
@@ -281,16 +262,18 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
-fi
+datalad uninstall -r --nocheck inputs/data
 
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

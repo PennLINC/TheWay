@@ -1,60 +1,85 @@
-## NOTE ##
+#!/bin/bash
 # This workflow is derived from the Datalad Handbook
 
-## Ensure the environment is ready to bootstrap the analysis workspace
-# Check that we have conda installed
-#conda activate
-#if [ $? -gt 0 ]; then
-#    echo "Error initializing conda. Exiting"
-#    exit $?
-#fi
+set -euf -o pipefail
+
+usage() {
+    # Note that errors are sent to STDERR
+    echo "$0 --bids-input ria+file:///path/to/bids  --container-ds /path/or/uri/to/containers" 1>&2
+    echo 1>&2
+    echo "$*" 1>&2
+    exit 1
+}
+
+checkandexit() {
+    if [ $? != 0 ]; then
+        # there was an error
+        echo "$2" 1>&2
+        exit $1
+    fi
+}
+
+BIDSINPUT=""
+CONTAINERDS=""
+FILTERFILE=""
+OUTDIR="mimosa"
+##### CLI parsing
+while [ ${1-X} != "X" ]; do
+    case $1 in
+    -i | --bids-input)
+        shift
+        BIDSINPUT=$1
+        shift
+        ;;
+
+    -c | --container-ds)
+        shift
+        CONTAINERDS=$1
+        shift
+        ;;
+
+    -f | --filter-file)
+        shift
+        FILTERFILE=$1
+        shift
+        ;;
+
+    -o | --outdir)
+        shift
+        OUTDIR=$1
+        shift
+        ;;
+
+    *)
+        usage "Unrecognized argument: \"$1\""
+        ;;
+    esac
+done
 
 DATALAD_VERSION=$(datalad --version)
-
-if [ $? -gt 0 ]; then
-    echo "No datalad available in your conda environment."
-    echo "Try pip install datalad"
-    # exit 1
-fi
+checkandexit $? "No datalad available in your conda environment; try pip install datalad"
 
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
-set -e -u
-
-
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/fmriprep-multises
-if [[ -d ${PROJECTROOT} ]]
-then
-    echo ${PROJECTROOT} already exists
-    # exit 1
-fi
+PROJECTROOT=${PWD}/${OUTDIR}
+test ! -d ${PROJECTROOT}
+checkandexit $? "${PROJECTROOT} already exists"
 
-if [[ ! -w $(dirname ${PROJECTROOT}) ]]
-then
-    echo Unable to write to ${PROJECTROOT}\'s parent. Change permissions and retry
-    # exit 1
-fi
-
+test -w $(dirname ${PROJECTROOT})
+checkandexit $? "Unable to write to ${PROJECTROOT}'s parent. Change permissions and retry"
 
 ## Check the BIDS input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
-then
-    echo "Required argument is an identifier of the BIDS source"
-    # exit 1
-fi
+test ! -z ${BIDSINPUT}
+checkandexit $? "--bids-input is a required argument"
 
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
+## Check the container DS
+test ! -z ${CONTAINERDS}
+checkandexit $? "--container-ds is a required argument"
 
+# If we were given a filter file, check that it exists
+test ! -z ${FILTERFILE} || true && test -f ${FILTERFILE}
+checkandexit $? "Was given the filter file: '${FILTERFILE}' but no such file exists"
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -79,62 +104,21 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${BIDSINPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
-if [ -z "${SUBJECTS}" ]
-then
-    echo "No subjects found in input data"
-    # exit 1
-fi
-
-
-## Add the containers as a subdataset
-cd ${PROJECTROOT}
-
-# Clone the containers dataset. If specified on the command, use that path
-CONTAINERDS=$2
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-else
-    echo "No containers dataset specified, attempting to clone from pmacs"
-    datalad clone \
-        ria+ssh://sciget.pmacs.upenn.edu:/project/bbl_projects/containers#~pennlinc-containers \
-        pennlinc-containers
-    cd pennlinc-containers
-    datalad get -r .
-    # get rid of the references to pmacs
-    set +e
-    datalad siblings remove -s pmacs-ria-storage
-    git annex dead pmacs-ria-storage
-    datalad siblings remove -s origin
-    git annex dead origin
-    set -e
-fi
+SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3)
+test ! -z "${SUBJECTS}"
+checkandexit $? "No subjects found in input data"
 
 cd ${PROJECTROOT}/analysis
-datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
+datalad install -d . --source ${CONTAINERDS} pennlinc-containers
 
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
-#$ -S /bin/bash
-#$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
-#$ -l tmpfree=200G
-# Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
 
 # fail whenever something is fishy, use -x to get verbose logfiles
@@ -144,15 +128,14 @@ set -e -u -x
 dssource="$1"
 pushgitremote="$2"
 subid="$3"
-sesid="$4"
 
-# change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+# change into the cluster-assigned temp directory. Not done by default in LSF
+cd ${TMPDIR}
 # OR Run it on a shared network drive
 # cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}-${sesid}"
+BRANCH="job-${LSB_JOBID}-${subid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
 
@@ -185,22 +168,35 @@ git checkout -b "${BRANCH}"
 # recomputation outside the scope of the original setup
 datalad get -n "inputs/data/${subid}"
 
-# Reomve all subjects we're not working on
+# Remove all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
+
 
 # ------------------------------------------------------------------------------
 # Do the run!
 
-datalad run \
-    -i code/fmriprep_zip.sh \
-    -i inputs/data/${subid}/${sesid}\
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
-    --explicit \
-    -o ${subid}_${sesid}_fmriprep-20.2.3.zip \
-    -o ${subid}_${sesid}_freesurfer-20.2.3.zip \
-    -m "fmriprep:20.2.3 ${subid} ${sesid}" \
-    "bash ./code/fmriprep_zip.sh ${subid} ${sesid}"
+if [ $# -eq 4 ]; then
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
+        -i $4 \
+        --explicit \
+        -o ${subid}_mimosa-0.2.1.zip \
+        -m "mimosa:0.2.1 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid} ${4}"
+else
+    datalad run \
+        -i code/mimosa_zip.sh \
+        -i inputs/data/${subid} \
+        -i inputs/data/dataset_description.json \
+        -i pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
+        --explicit \
+        -o ${subid}_mimosa-0.2.1.zip \
+        -m "mimosa:0.2.1 ${subid}" \
+        "bash ./code/mimosa_zip.sh ${subid}"
+fi
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -210,8 +206,8 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
-datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
+datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -222,77 +218,79 @@ EOT
 
 chmod +x code/participant_job.sh
 
-cat > code/fmriprep_zip.sh << "EOT"
+cat > code/mimosa_zip.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 
+export SINGULARITYENV_CORES=1
+export SINGULARITYENV_ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+export SINGULARITYENV_OMP_NUM_THREADS=1
+export SINGULARITYENV_OMP_THREAD_LIMIT=1
+export SINGULARITYENV_MKL_NUM_THREADS=1
+export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
+export SINGULARITYENV_TMPDIR=$TMPDIR
+
 subid="$1"
-sesid="$2"
 
-# Create a filter file that only allows this session
-filterfile=${PWD}/${sesid}_filter.json
-echo "{" > ${filterfile}
-echo "'fmap': {'datatype': 'fmap'}," >> ${filterfile}
-echo "'bold': {'datatype': 'func', 'session': '$sesid', 'suffix': 'bold'}," >> ${filterfile}
-echo "'sbref': {'datatype': 'func', 'session': '$sesid', 'suffix': 'sbref'}," >> ${filterfile}
-echo "'flair': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'FLAIR'}," >> ${filterfile}
-echo "'t2w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T2w'}," >> ${filterfile}
-echo "'t1w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T1w'}," >> ${filterfile}
-echo "'roi': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'roi'}" >> ${filterfile}
-echo "}" >> ${filterfile}
+if [ $# -eq 2 ]; then
+    filterfile=$2
 
-# remove ses and get valid json
-sed -i "s/'/\"/g" ${filterfile}
-sed -i "s/ses-//g" ${filterfile}
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --bids-filter-file $filterfile \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug \
+        --skip_bids_validator
+else
+    singularity run --cleanenv -B ${PWD} -B ${TMPDIR} \
+        pennlinc-containers/.datalad/environments/mimosa-0-2-1/image \
+        inputs/data \
+        mimosa \
+        participant \
+        --participant_label $(echo $subid | cut -d '-' -f 2) \
+        --strip mass \
+        --n4 \
+        --register \
+        --whitestripe \
+        --thresh 0.25 \
+        --debug \
+        --skip_bids_validator
+fi
 
-mkdir -p ${PWD}/.git/tmp/wdir
-singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
-    inputs/data \
-    prep \
-    participant \
-    -w ${PWD}/.git/tmp/wkdir \
-    --n_cpus 1 \
-    --stop-on-first-crash \
-    --fs-license-file code/license.txt \
-    --skip-bids-validation \
-    --bids-filter-file "${filterfile}" \
-    --output-spaces MNI152NLin6Asym:res-2 \
-    --participant-label "$subid" \
-    --force-bbr \
-    --cifti-output 91k -v -v
-
-cd prep
-7z a ../${subid}_${sesid}_fmriprep-20.2.3.zip fmriprep
-7z a ../${subid}_${sesid}_freesurfer-20.2.3.zip freesurfer
-rm -rf prep .git/tmp/wkdir
-rm ${filterfile}
+outdirs=$(ls | grep mimosa)
+7z a ${subid}_mimosa-0.2.1.zip $outdirs
+rm -rf $outdirs
 
 EOT
 
-chmod +x code/fmriprep_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+chmod +x code/mimosa_zip.sh
 
 mkdir logs
-echo .SGE_datalad_lock >> .gitignore
+echo .LSF_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
-################################################################################
-# SGE SETUP START - remove or adjust to your needs
-################################################################################
+# Add a script for merging outputs
 cat > code/merge_outputs.sh << "EOT"
 #!/bin/bash
 set -e -u -x
 EOT
-
 echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" \
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
 
+# The following should be pasted into the merge_outputs.sh script
 datalad clone ${outputsource} merge_ds
 cd merge_ds
 NBRANCHES=$(git branch -a | grep job- | sort | wc -l)
@@ -330,7 +328,7 @@ do
     [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
     branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
     echo ${branches} > ${batch_file}
-    git merge -m "fmriprep results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+    git merge -m "merge results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
 
 done
 
@@ -354,43 +352,41 @@ git annex dead here
 
 datalad push --data nothing
 echo SUCCESS
-
 EOT
 
 
-env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
-
-echo '#!/bin/bash' > code/qsub_calls.sh
+################################################################################
+# LSF SETUP START - remove or adjust to your needs
+################################################################################
+echo '#!/bin/bash' > code/bsub_calls.sh
+echo "export DSLOCKFILE=${PWD}/.LSF_datalad_lock" >> code/bsub_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
-eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-  SESSIONS=$(ls  inputs/data/$subject | grep ses- | cut -d '/' -f 1)
-  for session in ${SESSIONS}; do
-    echo "qsub -cwd ${env_flags} -N fp${subject}_${session} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
-  done
-done
-datalad save -m "SGE submission setup" code/ .gitignore
-
-################################################################################
-# SGE SETUP END
-################################################################################
-
-# cleanup - we have generated the job definitions, we do not need to keep a
-# massive input dataset around. Having it around wastes resources and makes many
-# git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
+eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=20000]'"
+if [ ! -z "${FILTERFILE}" ]; then
+    cp ${FILTERFILE} code/filterfile.json
+    FILTERFILE="code/filterfile.json"
 fi
+for subject in ${SUBJECTS}; do
+    echo "bsub ${eo_args} \
+        ${PWD}/code/participant_job.sh \
+        ${dssource} ${pushgitremote} ${subject} ${FILTERFILE}" >> code/bsub_calls.sh
+done
+datalad save -m "LSF submission setup" code/ .gitignore
 
+################################################################################
+# LSF SETUP END
+################################################################################
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# cleanup - we have generated the job definitions, we do not need to keep a
+# massive input dataset around. Having it around wastes resources and makes many
+# git operations needlessly slow
+datalad uninstall -r --nocheck inputs/data
 
 # Add an alias to the data in the RIA store
 RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)

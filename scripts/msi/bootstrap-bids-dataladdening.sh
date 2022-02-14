@@ -6,6 +6,8 @@
 ## Ensure the environment is ready to bootstrap the analysis workspace
 # Check that we have conda installed
 #conda activate
+source /home/umii/hendr522/SW/miniconda3/etc/profile.d/conda.sh
+conda activate datalad_and_nda
 #if [ $? -gt 0 ]; then
 #    echo "Error initializing conda. Exiting"
 #    exit $?
@@ -61,50 +63,56 @@ cd ${PROJECTROOT}
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
 # Only make a single ria store - we'll send all the subdatasets there
-output_store="ria+file://${PROJECTROOT}/output_ria"
-# and the directory for aliases
-mkdir -p ${PROJECTROOT}/output_ria/alias
+output_store="${PROJECTROOT}/BIDS_DATASETS"
+mkdir -p ${output_store}
 
 # Create a source dataset with all analysis components as an analysis access
 # point.
 datalad create -c yoda analysis
 cd analysis
 
-# Ensure the ria store is created.
-datalad create-sibling-ria --storage-sibling off -s output "${output_store}"
-
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
+#SBATCH -J qsiprep
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=20gb
+#SBATCH -t 24:00:00
+#SBATCH -p small,amdsmall
+#SBATCH -A feczk001
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=hendr522@umn.edu
+
 # Set up the correct conda environment
+source /home/umii/hendr522/SW/miniconda3/etc/profile.d/conda.sh
+conda activate datalad_and_nda
 echo I\'m in $PWD using `which python`
+
+# set up AWS credentials as environment variables
+export AWS_ACCESS_KEY_ID=`cat ${HOME}/.s3cfg | grep access_key | awk '{print $3}'`
+export AWS_SECRET_ACCESS_KEY=`cat ${HOME}/.s3cfg | grep secret_key | awk '{print $3}'`
 
 # fail whenever something is fishy, use -x to get verbose logfiles
 export PS4='> '
 set -e -u -x
 
-echo $LSB_JOBID
-
+echo $SLURM_JOB_ID
 # Set up the remotes and get the subject id from the call
-collector_ria="$1"
+collector_dir="$1"
 # make $2 subid/sesid to have session subdatasets ##UNTESTED##
 subid="$2"
 bidsroot="$3"
 bucket="$4"
 srname="$5"
 
-# change into the cluster-assigned temp directory. Not done by default in LSF
-workdir=/scratch/${LSB_JOBID}
-mkdir -p ${workdir}
-cd ${workdir}
+# change into the directory where the individual subject datasets will go
+cd $collector_dir
 
 # New dataset to house this subject
 datalad create -D "Copy subject $subid" $subid
 cd $subid
-
-# This should only hold git and remote availability
-# because the data is going to s3
-datalad create-sibling-ria --storage off -s output "${collector_ria}"
 
 # Add the s3 output
 git annex initremote "$srname" \
@@ -112,68 +120,53 @@ git annex initremote "$srname" \
     autoenable=true \
     bucket=$bucket \
     encryption=none \
-    exporttree=yes \
     "fileprefix=$subid/" \
-    host=s3.amazonaws.com \
+    host=s3.msi.umn.edu \
     partsize=1GiB \
-    port=80 \
-    "publicurl=https://s3.amazonaws.com/$bucket" \
-    public=no \
-    versioning=yes
-
+    port=443 \
+    public=no
 
 # Copy the entire input directory into the current dataset
 # and save it as a subdataset.
 datalad run \
     -m "Copy in ${subid}" \
-    "cp -r ${bidsroot}/${subid}/* ."
+    "cp -rL ${bidsroot}/${subid}/* ."
 
-ria_path=$(datalad siblings | grep 'output(-' | sed 's/.*\[\(.*\) (git)\]/\1/')
-
-# Push the tracking info
-datalad push --to output --data nothing
 # Push to s3
-datalad push --to srname
+datalad push --to $srname
 
 # Cleanup
-datalad drop --nocheck .
-git annex dead here
-
-# Make an alias in the RIA store
-cd ${ria_path}/../../alias
-pt1=$(basename `dirname $ria_path`)
-pt2=$(basename $ria_path)
-ln -s "../$pt1/$pt2" $subid
-
-# cleanup
-rm -rf $workdir
+datalad drop .
 
 # Announce
 echo SUCCESS
+
 EOT
 
 chmod +x code/participant_job.sh
 
 mkdir logs
-echo .LSF_datalad_lock >> .gitignore
+echo .SLURM_datalad_lock >> .gitignore
 echo logs >> .gitignore
 
 datalad save -m "Participant compute job implementation"
 
-################################################################################
-# LSF SETUP START - remove or adjust to your needs
-################################################################################
-echo '#!/bin/bash' > code/bsub_calls.sh
-eo_args="-e ${PWD}/logs -o ${PWD}/logs -n 1 -R 'rusage[mem=5000]'"
-for subject in ${SUBJECTS}; do
-    echo "bsub -J bids${subject} ${eo_args} \
-    ${PWD}/code/participant_job.sh \
-    ${output_store} ${subject} ${BIDSINPUT}" >> code/bsub_calls.sh
-done
-datalad save -m "LSF submission setup" code/ .gitignore
+#TODO add s3info credential dynamically
 
 ################################################################################
-# LSF SETUP END
+# SLURM SETUP START - remove or adjust to your needs
+################################################################################
+echo '#!/bin/bash' > code/srun_calls.sh
+for subject in ${SUBJECTS}; do
+    eo_args="-e ${PWD}/logs/${subject}.err -o ${PWD}/logs/${subject}.out"
+    echo "sbatch -J bids${subject} ${eo_args} \
+    ${PWD}/code/participant_job.sh \
+    ${output_store} ${subject} ${BIDSINPUT} hendr522-dataladdening private-umn-s3" >> code/srun_calls.sh
+done
+datalad save -m "SLURM submission setup" code/ .gitignore
+
+################################################################################
+#  SETUP END
 ################################################################################
 
 
@@ -188,31 +181,15 @@ echo "BIDSINPUT=${BIDSINPUT}" >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 
 cat >> code/merge_outputs.sh << "EOT"
-subjects=$(ls output_ria/alias)
-datalad create -D "Collection of BIDS subdatasets" -c text2git -d merge_ds
-cd merge_ds
+cd $output_store
+subjects=$(find . -maxdepth 1 -type d -name 'sub-')
+datalad create -D "Collection of BIDS subdatasets" -c text2git -d BIDS
+cd BIDS
 for subject in $subjects
 do
-    datalad clone -d . ${output_store}"#~${subject}" $subject
+    datalad clone -d . ${output_store}/${subject} $subject
 done
-datalad create-sibling-ria -s output "${output_store}"
-
-# Copy the non-subject data into here
-cp $(find $BIDSINPUT -maxdepth 1 -type f) .
-datalad save -m "Add subdatasets"
-datalad push --to output
-
-ria_path=$(datalad siblings | grep 'output(-' | sed 's/.*\[\(.*\) (git)\]/\1/')
-
-# stop tracking this branch
-datalad drop --nocheck .
-git annex dead here
-
-cd ${ria_path}/../../alias
-pt1=$(basename `dirname $ria_path`)
-pt2=$(basename $ria_path)
-ln -s "../$pt1/$pt2" data
-
+datalad save -m "added subject data"
 EOT
 
 # if we get here, we are happy

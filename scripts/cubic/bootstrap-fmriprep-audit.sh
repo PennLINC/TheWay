@@ -167,7 +167,7 @@ datalad run \
     -o ${output_file} \
     -m "fmriprep-audit ${subid}" \
     "python code/bootstrap_zip_audit.py ${subid} ${BIDS_DIR} ${ZIPS_DIR} ${ERROR_DIR} ${output_file} fmriprep"
-    
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -275,6 +275,39 @@ echo SUCCESS
 
 EOT
 
+##### concat_outputs.sh START ####
+
+cat > code/concat_outputs.sh << "EOT"
+#!/bin/bash
+set -e -u -x
+EOT
+
+echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
+echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
+
+cat >> code/concat_outputs.sh << "EOT"
+# set up concat_ds and run concatenator on it
+cd ${CBICA_TMPDIR}
+datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
+cd concat_ds/code
+wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+cd ..
+datalad save -m "added concatenator script"
+datalad run -i 'csvs/*' -o '${PROJECT_ROOT}/FMRIPREP_AUDIT.csv' --expand inputs --explicit "python code/concatenator.py csvs ${PROJECT_ROOT}/FMRIPREP_AUDIT.csv"
+datalad save -m "generated report"
+# push changes
+datalad push
+# remove concat_ds
+git annex dead here
+cd ..
+chmod +w -R concat_ds
+rm -rf concat_ds
+echo SUCCESS
+
+EOT
+
+#### concat_output.sh END ####
+
 
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
@@ -302,6 +335,11 @@ datalad uninstall -r --nocheck inputs/data
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

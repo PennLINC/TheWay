@@ -111,10 +111,10 @@ datalad clone ${CONTAINERDS} pennlinc-containers
 cd pennlinc-containers
 datalad get -r .
 # get rid of the references to pmacs
-set +e
-datalad siblings remove -s pmacs-ria-storage
-datalad siblings remove -s origin
-set -e
+#set +e
+#datalad siblings remove -s pmacs-ria-storage
+#datalad siblings remove -s origin
+#set -e
 
 cd ${PROJECTROOT}/analysis
 datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -124,8 +124,9 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=25G
-#$ -l s_vmem=23.5G
 #$ -l tmpfree=200G
+#$ -R y 
+#$ -l h_rt=24:00:00
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -202,8 +203,8 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
+datalad uninstall -r --nocheck --if-dirty ignore inputs/data
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -225,7 +226,7 @@ singularity run --cleanenv -B ${PWD} \
     inputs/data \
     prep \
     participant \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wkdir \
     --n_cpus 1 \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \

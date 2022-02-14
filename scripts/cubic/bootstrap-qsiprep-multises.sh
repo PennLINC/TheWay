@@ -13,6 +13,7 @@ DATALAD_VERSION=$(datalad --version)
 
 if [ $? -gt 0 ]; then
     echo "No datalad available in your conda environment."
+    echo "Try pip install datalad"
     # exit 1
 fi
 
@@ -22,7 +23,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/qsiprep
+PROJECTROOT=${PWD}/qsiprep-multises
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -43,17 +44,6 @@ then
     echo "Required argument is an identifier of the BIDS source"
     # exit 1
 fi
-
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
-
 
 ## Start making things
 mkdir -p ${PROJECTROOT}
@@ -78,18 +68,10 @@ pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 
 # register the input dataset
-if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
-then
-    echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
-    # amend the previous commit with a nicer commit message
-    git commit --amend -m 'Register input data dataset as a subdataset'
-else
-    echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
-    cp -r ${BIDSINPUT}/* inputs/data
-    datalad save -r -m "added input data"
-fi
+echo "Cloning input dataset into analysis dataset"
+datalad clone -d . ${BIDSINPUT} inputs/data
+# amend the previous commit with a nicer commit message
+git commit --amend -m 'Register input data dataset as a subdataset'
 
 SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
 if [ -z "${SUBJECTS}" ]
@@ -98,12 +80,11 @@ then
     # exit 1
 fi
 
-
+# Clone the containers dataset. If specified on the command, use that path
+CONTAINERDS=$2
 ## Add the containers as a subdataset
 cd ${PROJECTROOT}
 
-# Clone the containers dataset. If specified on the command, use that path
-CONTAINERDS=$2
 if [[ ! -z "${CONTAINERDS}" ]]; then
     datalad clone ${CONTAINERDS} pennlinc-containers
 else
@@ -119,11 +100,10 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l s_vmem=30.5G
-#$ -l tmpfree=300G
+#$ -l tmpfree=200G
 #$ -pe threaded 6
+
 # Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
 
 # fail whenever something is fishy, use -x to get verbose logfiles
@@ -133,6 +113,7 @@ set -e -u -x
 dssource="$1"
 pushgitremote="$2"
 subid="$3"
+sesid="$4"
 
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
@@ -140,7 +121,7 @@ cd ${CBICA_TMPDIR}
 # cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}"
+BRANCH="job-${JOB_ID}-${subid}-${sesid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
 
@@ -181,20 +162,20 @@ datalad get -n "inputs/data/${subid}"
 
 datalad run \
     -i code/qsiprep_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/*json \
-    -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
+    -i inputs/data/${subid}/${sesid} \
+    -i "inputs/data/*json" \
+    -i -i pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \ \
+    --expand inputs \
     --explicit \
-    -o ${subid}_qsiprep-0.14.3.zip \
-    -m "qsiprep:0.14.3 ${subid}" \
-    "bash ./code/qsiprep_zip.sh ${subid}"
+    -o ${subid}_${sesid}_qsiprep-0.14.2.zip \
+    -m "qsiprep:0.14.2 ${subid} ${sesid}" \
+    "bash ./code/qsiprep_zip.sh ${subid} ${sesid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
-# remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
@@ -215,26 +196,44 @@ cat > code/qsiprep_zip.sh << "EOT"
 set -e -u -x
 
 subid="$1"
+sesid="$2"
+
+# Create a filter file that only allows this session
+filterfile=${PWD}/${sesid}_filter.json
+echo "{" > ${filterfile}
+echo "'fmap': {'datatype': 'fmap'}," >> ${filterfile}
+echo "'dwi': {'datatype': 'func', 'session': '$sesid', 'suffix': 'dwi'}," >> ${filterfile}
+echo "'sbref': {'datatype': 'func', 'session': '$sesid', 'suffix': 'sbref'}," >> ${filterfile}
+echo "'flair': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'FLAIR'}," >> ${filterfile}
+echo "'t2w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T2w'}," >> ${filterfile}
+echo "'t1w': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'T1w'}," >> ${filterfile}
+echo "'roi': {'datatype': 'anat', 'session': '$sesid', 'suffix': 'roi'}" >> ${filterfile}
+echo "}" >> ${filterfile}
+
+# remove ses and get valid json
+sed -i "s/'/\"/g" ${filterfile}
+sed -i "s/ses-//g" ${filterfile}
 
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/qsiprep-0-14-3/image \
+    pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
     inputs/data \
     prep \
     participant \
     -v -v \
-    -w ${PWD}/.git/wkdir \
+    -w ${PWD}/.git/tmp/wdir \
     --n_cpus $NSLOTS \
     --stop-on-first-crash \
     --fs-license-file code/license.txt \
     --skip-bids-validation \
     --participant-label "$subid" \
     --unringing-method mrdegibbs \
-    --output-resolution 1.5
+    --output-resolution 1.8
 
 cd prep
-7z a ../${subid}_qsiprep-0.14.3.zip qsiprep
-rm -rf prep .git/tmp/wkdir
+7z a ../${subid}_${sesid}_qsiprep-0.14.2.zip qsiprep
+rm -rf prep .git/tmp/wdir
+rm ${filterfile}
 
 EOT
 
@@ -259,6 +258,7 @@ echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S da
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
+
 ################################################################################
 # SGE SETUP START - remove or adjust to your needs
 ################################################################################
@@ -268,9 +268,12 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-    echo "qsub -cwd ${env_flags} -N qp${subject} ${eo_args} \
+  SESSIONS=$(ls  inputs/data/$subject | grep ses- | cut -d '/' -f 1)
+  for session in ${SESSIONS}; do
+    echo "qsub -cwd ${env_flags} -N fp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject}" >> code/qsub_calls.sh
+    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
+  done
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
@@ -281,16 +284,18 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-if [ "${BIDS_INPUT_METHOD}" = "clone" ]
-then
-    datalad uninstall -r --nocheck inputs/data
-fi
+datalad uninstall -r --nocheck inputs/data
 
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+# Add an alias to the data in the RIA store
+RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
+mkdir -p ${PROJECTROOT}/output_ria/alias
+ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
 
 # if we get here, we are happy
 echo SUCCESS

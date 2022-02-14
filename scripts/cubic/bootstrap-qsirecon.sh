@@ -203,10 +203,10 @@ subid="$1"
 wd=${PWD}
 
 cd inputs/data
-7z x ${subid}_qsiprep-0.14.2.zip
+7z x ${subid}_qsiprep-0.13.1.zip
 cd $wd
 
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir -p ${PWD}/.git/tmp/wkdir
 singularity run \
     --cleanenv --env DIPY_HOME=/home/qsiprep/.dipy -B ${PWD} \
     pennlinc-containers/.datalad/environments/qsiprep-0-14-2/image \
@@ -217,7 +217,7 @@ singularity run \
     --nthreads ${NSLOTS} \
     --stop-on-first-crash \
     --recon-only \
-    --recon-spec amico_noddi \
+    --recon-spec mrtrix_singleshell_ss3t_noACT \
     --sloppy \
     -w ${PWD}/.git/tmp/wkdir
 
