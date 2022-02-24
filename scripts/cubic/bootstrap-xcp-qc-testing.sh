@@ -164,10 +164,10 @@ cat >> code/concat_outputs.sh << "EOT"
 cd ${CBICA_TMPDIR}
 datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
-wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py
 cd ..
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*quality*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
+datalad run -i 'sub-*quality*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
 datalad save -m "generated report"
 # push changes
 datalad push
