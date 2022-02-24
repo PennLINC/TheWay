@@ -113,7 +113,7 @@ datalad run \
     -i code/get_files.sh \
     -i inputs/data/${subid}_xcp.zip \
     --explicit \
-    -o ${subid}*quality*.csv \
+    -o ${subid}*qc*.csv \
     -m "unzipped ${subid}" \
     "bash code/get_files.sh inputs/data/${subid}_xcp*.zip"
 # file content first -- does not need a lock, no interaction with Git
@@ -142,7 +142,7 @@ ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'xcp/*' -d .
-cp xcp/${subid}/*/perf/*quality*.csv .
+cp xcp/${subid}/*/func/*qc*.csv .
 # remove unzip dir
 rm -rf xcp
 EOT
@@ -167,7 +167,7 @@ cd concat_ds/code
 wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py
 cd ..
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*quality*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
+datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
 datalad save -m "generated report"
 # push changes
 datalad push
