@@ -111,7 +111,7 @@ git checkout -b "${BRANCH}"
 # Do the run!
 datalad run \
     -i code/get_files.sh \
-    -i inputs/data/${subid}_xcp.zip \
+    -i inputs/data/${subid}_xcp*.zip \
     --explicit \
     -o ${subid}*qc*.csv \
     -m "unzipped ${subid}" \
