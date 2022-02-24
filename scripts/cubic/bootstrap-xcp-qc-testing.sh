@@ -17,7 +17,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/XCP _QC
+PROJECTROOT=${PWD}/XCP_QC
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
