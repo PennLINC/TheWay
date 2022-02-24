@@ -1,5 +1,4 @@
 ## NOTE ##
-# THIS SCRIPT IS STILL BEING TESTED AND NOT READY FOR USE
 # This workflow is derived from the Datalad Handbook
 ## Ensure the environment is ready to bootstrap the analysis workspace
 # Check that we have conda installed
@@ -18,7 +17,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/ASLPREP_QC
+PROJECTROOT=${PWD}/XCP _QC
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -38,7 +37,7 @@ DERIVATIVE_BOOTSTRAP_DIR=$1
 DERIVATIVE_INPUT=ria+file://${DERIVATIVE_BOOTSTRAP_DIR}"/output_ria#~data"
 if [[ -z ${DERIVATIVE_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is the path to the aslprep bootstrap directory."
+    echo "Required argument is the path to the xcp bootstrap directory."
     echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
@@ -67,7 +66,7 @@ datalad install -d . -r --source ${DERIVATIVE_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-ZIPS=$(find inputs/data -name 'sub-*aslprep*' | cut -d '/' -f 3 | sort)
+ZIPS=$(find inputs/data -name 'sub-*xcp*' | cut -d '/' -f 3 | sort)
 if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
@@ -112,11 +111,11 @@ git checkout -b "${BRANCH}"
 # Do the run!
 datalad run \
     -i code/get_files.sh \
-    -i inputs/data/${subid}_aslprep*.zip \
+    -i inputs/data/${subid}_xcp.zip \
     --explicit \
     -o ${subid}*quality*.csv \
     -m "unzipped ${subid}" \
-    "bash code/get_files.sh inputs/data/${subid}_aslprep*.zip"
+    "bash code/get_files.sh inputs/data/${subid}_xcp*.zip"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -142,10 +141,10 @@ set -e -u -x
 ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
-unzip -n $ZIP_FILE 'aslprep/*' -d .
-cp aslprep/${subid}/*/perf/*quality*.csv .
+unzip -n $ZIP_FILE 'xcp/*' -d .
+cp xcp/${subid}/*/perf/*quality*.csv .
 # remove unzip dir
-rm -rf aslprep
+rm -rf xcp
 EOT
 
 chmod +x code/get_files.sh
@@ -168,7 +167,7 @@ cd concat_ds/code
 wget https://raw.githubusercontent.com/PennLINC/RBC/master/PennLINC/Generic/concatenator.py
 cd ..
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*quality*.csv' -o '${PROJECT_ROOT}/ASLPREP_QC.csv' --expand inputs --explicit "python code/concatenator.py $PWD ${PROJECT_ROOT}/ASLPREP_QC.csv"
+datalad run -i 'sub-*quality*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
 datalad save -m "generated report"
 # push changes
 datalad push
