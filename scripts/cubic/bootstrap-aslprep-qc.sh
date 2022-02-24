@@ -144,8 +144,9 @@ ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'aslprep/*' -d .
-# copy outputs out of aslprep
-cp -r aslprep/* .
+
+cp aslprep/${subid}/*/perf/*quality*.csv .
+
 # remove unzip dir
 rm -rf aslprep
 EOT
