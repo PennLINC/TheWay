@@ -82,7 +82,7 @@ cat > code/participant_job.sh << "EOT"
 #$ -R y
 #$ -l h_rt=24:00:00
 # Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate base
+source ${CONDA_PREFIX}/bin/activate flywheel
 echo I\'m in $PWD using `which python`
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
@@ -91,9 +91,9 @@ dssource="$1"
 pushgitremote="$2"
 subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
-cd ${CBICA_TMPDIR}
+#cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+ cd /cbica/comp_space/$(basename $HOME)
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -141,10 +141,10 @@ set -e -u -x
 ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
-unzip -n $ZIP_FILE 'xcp/*' -d .
-cp xcp/${subid}/*/func/*qc*.csv .
+unzip -n $ZIP_FILE 'xcp*/*' -d .
+cp xcp*/${subid}/*/func/*qc*.csv .
 # remove unzip dir
-rm -rf xcp
+rm -rf xcp*
 EOT
 
 chmod +x code/get_files.sh
