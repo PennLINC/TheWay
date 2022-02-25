@@ -82,7 +82,7 @@ cat > code/participant_job.sh << "EOT"
 #$ -R y
 #$ -l h_rt=24:00:00
 # Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate flywheel
+source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
