@@ -160,13 +160,13 @@ echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
 
 cat >> code/concat_outputs.sh << "EOT"
-# takes argument in format of individual QC file names without subject and session separated by space, eg. below: 
-# task-fracback_acq-singleband_space-fsLR_desc-qc_bold.csv task-rest_acq-singleband_space-MNI152NLin6Asym_desc-qc_res-2_bold.csv
+# takes argument in format of individual QC file names without subject and session separated by space and * after band, eg. below: 
+# task-fracback_acq-singleband*_space-fsLR_desc-qc_bold.csv task-rest_acq-singleband*_space-MNI152NLin6Asym_desc-qc_res-2_bold.csv
 # set up concat_ds and run concatenator on it
 cd ${CBICA_TMPDIR}
 datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
-wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py
+wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py # will need to be edited
 cd ..
 ARGS=$@
 datalad save -m "added concatenator script"
