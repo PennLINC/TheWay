@@ -166,8 +166,9 @@ datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
 wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py
 cd ..
+ARGS=$1
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT}/XCP_QC.csv"
+datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT} $ARGS"
 datalad save -m "generated report"
 # push changes
 datalad push
@@ -177,6 +178,7 @@ cd ..
 chmod +w -R concat_ds
 rm -rf concat_ds
 echo SUCCESS
+
 EOT
 
 #### concat_output.sh END ####
