@@ -124,7 +124,9 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=64G
-#$ -l tmpfree=200G
+#$ -l tmpfree=300G
+#$ -pe threaded 3
+
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -180,6 +182,14 @@ git checkout -b "${BRANCH}"
 # Do the run!
 
 datalad get -r pennlinc-containers
+datalad get -n -r inputs/data
+QSIPREP_ZIP=$(ls inputs/data/qsiprep/${subid}_qsiprep*.zip | cut -d '@' -f 1 || true)
+FREESURFER_ZIP=$(ls inputs/data/fmriprep/${subid}_free*.zip | cut -d '@' -f 1 || true)
+
+if [ -z "${FREESURFER_ZIP}" ]; then
+    echo NO freesurfer zip.
+    exit 1
+fi
 
 datalad run \
     -i code/qsirecon_zip.sh \
@@ -188,7 +198,7 @@ datalad run \
     --explicit \
     -o ${subid}_qsirecon-0-15-2.zip \
     -m "qsirecon-0.15.2 ${subid}" \
-    "bash ./code/qsirecon_zip.sh ${subid}"
+    "bash ./code/qsirecon_zip.sh ${subid} ${QSIPREP_ZIP} ${FREESURFER_ZIP}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -242,7 +252,7 @@ singularity run \
     --recon-only \
     --skip-recon-reports \
     --freesurfer-input inputs/data/fmriprep/freesurfer \
-    --recon-spec ${PWD}/code/the_gauntlet.json \
+    --recon-spec ${PWD}/code/multishell_gauntlet.json \
     -w ${PWD}/.git/tmp/wkdir
 
 cd qsirecon
@@ -253,6 +263,9 @@ EOT
 
 chmod +x code/qsirecon_zip.sh
 cp ${FREESURFER_HOME}/license.txt code/license.txt
+# Get the recon spec
+RECON_SPEC=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/multishell_gauntlet.json
+wget -qO- ${RECON_SPEC} >> code/multishell_gauntlet.json
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
@@ -270,7 +283,6 @@ echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S da
     >> code/merge_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
-
 
 
 ################################################################################

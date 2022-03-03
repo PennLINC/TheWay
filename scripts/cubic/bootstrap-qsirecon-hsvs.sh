@@ -260,6 +260,7 @@ rm -rf prep .git/tmp/wkdir
 EOT
 
 chmod +x code/qsirecon_zip.sh
+cp ${FREESURFER_HOME}/license.txt code/license.txt
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
