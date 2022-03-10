@@ -170,9 +170,9 @@ cd ..
 tasks=$1
 spaces=$2
 bands=$3
-echo USAGE = bash code/concat_outputs.sh rest fsLR multi OR comma-separated for multiple arguments, eg: bash code/concat_outputs.sh rest,fracback,face MNI152NLin6Asym,fsLR multi,single
+res=$4
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT} $tasks $spaces $bands"
+datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT} $tasks $spaces $bands $res"
 datalad save -m "generated report"
 # push changes
 datalad push
