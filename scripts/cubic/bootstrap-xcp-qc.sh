@@ -160,17 +160,19 @@ echo "PROJECT_ROOT=${PROJECTROOT}" >> code/concat_outputs.sh
 echo "cd ${PROJECTROOT}" >> code/concat_outputs.sh
 
 cat >> code/concat_outputs.sh << "EOT"
-# takes argument in format of individual QC file names without subject and session separated by space and * after band, eg. below: 
-# task-fracback_acq-singleband*_space-fsLR_desc-qc_bold.csv task-rest_acq-singleband*_space-MNI152NLin6Asym_desc-qc_res-2_bold.csv
 # set up concat_ds and run concatenator on it
 cd ${CBICA_TMPDIR}
 datalad clone ria+file://${PROJECT_ROOT}/output_ria#~data concat_ds
 cd concat_ds/code
-wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py # will need to be edited
+rm -rf concatenator_task.py*
+wget https://raw.githubusercontent.com/PennLINC/RBC/kahinimehta-patch-1/PennLINC/Generic/concatenator_task.py #might need to change this if pull request is resolved 
 cd ..
-ARGS=$@
+tasks=$1
+spaces=$2
+bands=$3
+echo USAGE = bash code/concat_outputs.sh rest fsLR multi OR comma-separated for multiple arguments, eg: bash code/concat_outputs.sh rest,fracback,face MNI152NLin6Asym,fsLR multi,single
 datalad save -m "added concatenator script"
-datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT} $ARGS"
+datalad run -i 'sub-*qc*.csv' -o '${PROJECT_ROOT}/XCP_QC.csv' --expand inputs --explicit "python code/concatenator_task.py $PWD ${PROJECT_ROOT} $tasks $spaces $bands"
 datalad save -m "generated report"
 # push changes
 datalad push
