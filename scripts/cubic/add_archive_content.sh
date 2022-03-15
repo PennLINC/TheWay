@@ -19,7 +19,7 @@ cd archive_clone
 for zip in *.zip; do
     echo Adding archive content for ${zip}
     datalad get ${zip}
-    datalad add-archive-content -e 'logs/.*' -e '.*' --drop-after ${zip}
+    datalad add-archive-content -e 'logs/.*' -e '.bidsignore' -e 'dataset_description.json' ${zip}
 done
 
 datalad push
