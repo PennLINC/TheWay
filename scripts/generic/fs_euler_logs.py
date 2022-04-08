@@ -7,6 +7,9 @@ from tqdm import tqdm
 def process_zip(zip_path):
     freesurfer_zip = Path(zip_path)
     subid = freesurfer_zip.stem.split("_")[0]
+    sesid = ""
+    if "ses-" in freesurfer_zip.stem:
+        sesid = freesurfer_zip.stem.split("_")[1]
     if not freesurfer_zip.exists():
         raise ValueError("Must provide a zip file")
 
@@ -29,7 +32,7 @@ def process_zip(zip_path):
 
     rh_euler, lh_euler = read_qc("lheno")
     rh_holes, lh_holes = read_qc("lhholes")
-    return {"rbc_id": subid, 
+    return {"rbc_id": subid, "archive": zip_path, "session": sesid,
             "lh_euler": lh_euler, "rh_euler": rh_euler, 
             "lh_holes": lh_holes, "rh_holes": rh_holes}
 
