@@ -252,7 +252,7 @@ echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
 ################################################################################
-# SGE SETUP START - remove or adjust to your needs
+# SLURM SETUP START - remove or adjust to your needs
 ################################################################################
 env_flags="--export=DSLOCKFILE=${PWD}/.slurm_datalad_lock"
 echo '#!/bin/bash' > code/qsub_calls.sh
@@ -267,7 +267,7 @@ for subject in ${SUBJECTS}; do
     ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
   done
 done
-datalad save -m "SGE submission setup" code/ .gitignore
+datalad save -m "SLURM submission setup" code/ .gitignore
 
 ################################################################################
 # SGE SETUP END
