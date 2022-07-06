@@ -63,9 +63,9 @@ cd analysis
 
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
-datalad create-sibling-ria -s output "${output_store}"
+datalad create-sibling-ria -s output  "${output_store}" --new-store-ok 
 pushremote=$(git remote get-url --push output)
-datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
+datalad create-sibling-ria -s input --storage-sibling off --new-store-ok "${input_store}"
 
 # register the input dataset
 echo "Cloning input dataset into analysis dataset"
@@ -255,7 +255,7 @@ wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 # SLURM SETUP START - remove or adjust to your needs
 ################################################################################
 env_flags="--export=DSLOCKFILE=${PWD}/.slurm_datalad_lock"
-echo '#!/bin/bash' > code/qsub_calls.sh
+echo '#!/bin/bash' > code/sbatch_calls.sh
 dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs/%j.e -o ${PWD}/logs/%j.o"
@@ -264,7 +264,7 @@ for subject in ${SUBJECTS}; do
   for session in ${SESSIONS}; do
     echo "sbatch ${env_flags} ---job-name  qp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
-    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/qsub_calls.sh
+    ${dssource} ${pushgitremote} ${subject} ${session}" >> code/sbatch_calls.sh
   done
 done
 datalad save -m "SLURM submission setup" code/ .gitignore
