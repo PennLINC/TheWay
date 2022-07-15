@@ -116,7 +116,9 @@ datalad run \
     -i code/get_files.sh \
     -i inputs/data/${subid}_qsiprep*.zip \
     --explicit \
-    -o ${subid}_ses-PNC1_task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii \
+    -o ${subid}*_desc-SliceQC_dwi.json \
+    -o ${subid}*_dwiqc.json \
+    -o -o ${subid}*_desc-ImageQC_dwi.csv \
     -m "unzipped ${subid}" \
     "bash code/get_files.sh inputs/data/${subid}_qsiprep*.zip"
 # file content first -- does not need a lock, no interaction with Git
@@ -145,11 +147,13 @@ ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'qsiprep/*' -d .
-desired_file=qsiprep/${subid}/*/func/*task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii
+desired_file_1=qsiprep/${subid}/*/dwi/*_desc-ImageQC_dwi.csv
+desired_file_2=qsiprep/${subid}/*/dwi/*_desc-SliceQC_dwi.json
+desired_file_3=qsiprep/${subid}/*/dwi/*_dwiqc.json
 # check if the desired file exists
-if [ -e ${desired_file} ]; then
-    # copy only the file we need out of qsiprep
-    cp ${desired_file} .
+if [ -e ${desired_file_3} ]; then
+    # copy only the files we need out of qsiprep
+    cp ${desired_file_1} ${desired_file_2} ${desired_file_3} .
 fi
 # remove unzip dir
 rm -rf qsiprep
