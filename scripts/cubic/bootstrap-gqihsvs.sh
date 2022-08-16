@@ -128,9 +128,8 @@ cp ${FREESURFER_HOME}/license.txt code/license.txt
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=32G
-#$ -l tmpfree=200G
-#$ -pe threaded 2-4
+#$ -l h_vmem=24G
+#$ -pe threaded 2
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -146,7 +145,7 @@ subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+#cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
@@ -186,17 +185,25 @@ git checkout -b "${BRANCH}"
 # Do the run!
 
 datalad get -r pennlinc-containers
-datalad get -n -r inputs/data
+datalad get -n inputs/data/qsiprep
+datalad get -n inputs/data/fmriprep
 QSIPREP_ZIP=$(ls inputs/data/qsiprep/${subid}_qsiprep*.zip | cut -d '@' -f 1 || true)
 FREESURFER_ZIP=$(ls inputs/data/fmriprep/${subid}_free*.zip | cut -d '@' -f 1 || true)
+if [ -z "${FREESURFER_ZIP}" ]; then
+    echo "No freesurfer results found for ${subid}"
+    exit 99
+fi
 
 datalad run \
     -i code/qsirecon_zip.sh \
+    -i code/calculate_steinhardt.py \
+    -i code/gqi_hsvs.json \
     -i ${QSIPREP_ZIP} \
     -i ${FREESURFER_ZIP} \
     --explicit \
-    -o ${subid}_qsirecon-0.16.0RC3_hsvs.zip \
-    -m "Run HSVS + sift for ${subid}" \
+    -o 'qsirecon' \
+    --expand outputs \
+    -m "Run HSVS + gqi + SOPs for ${subid}" \
     "bash ./code/qsirecon_zip.sh ${subid} ${QSIPREP_ZIP} ${FREESURFER_ZIP}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -221,6 +228,204 @@ EOT
 
 chmod +x code/participant_job.sh
 
+
+# Now create dsi studio pipeline specification file
+cat > code/gqi_hsvs.json << "EOT"
+{
+  "name": "dsistudio_pipeline",
+  "space": "T1w",
+  "atlases": ["schaefer100", "schaefer200", "schaefer400", "brainnetome246", "aicha384", "gordon333", "aal116"],
+  "anatomical": ["mrtrix_5tt_hsvs"],
+  "nodes": [
+    {
+      "name": "dsistudio_gqi",
+      "software": "DSI Studio",
+      "action": "reconstruction",
+      "input": "qsiprep",
+      "output_suffix": "gqi",
+      "parameters": {"method": "gqi"}
+    },
+    {
+      "name": "scalar_export",
+      "software": "DSI Studio",
+      "action": "export",
+      "input": "dsistudio_gqi",
+      "output_suffix": "gqiscalar"
+    },
+    {
+      "name": "tractography",
+      "software": "DSI Studio",
+      "action": "tractography",
+      "input": "dsistudio_gqi",
+      "parameters": {
+        "turning_angle": 35,
+        "method": 0,
+        "smoothing": 0.0,
+        "step_size": 1.0,
+        "min_length": 30,
+        "max_length": 250,
+        "seed_plan": 0,
+        "interpolation": 0,
+        "initial_dir": 2,
+        "fiber_count": 5000000
+      }
+    },
+    {
+      "name": "streamline_connectivity",
+      "software": "DSI Studio",
+      "action": "connectivity",
+      "input": "tractography",
+      "output_suffix": "gqinetwork",
+      "parameters": {
+        "connectivity_value": "count,ncount,mean_length,gfa",
+        "connectivity_type": "pass,end"
+      }
+    }
+  ]
+}
+
+EOT
+chmod +x code/gqi_hsvs.json
+
+# Now create Steinhardt calculation file
+cat > code/calculate_steinhardt.py << "EOT"
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+"""
+Image tools interfaces
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+"""
+
+import sys
+import os
+import subprocess
+import numpy as np
+from glob import glob
+import nibabel as nb
+from nipype.utils.filemanip import fname_presuffix
+import pdb
+"""
+
+The spherical harmonic coefficients are stored as follows. First, since the
+signal attenuation profile is real, it has conjugate symmetry, i.e. Y(l,-m) =
+Y(l,m)* (where * denotes the complex conjugate). Second, the diffusion profile
+should be antipodally symmetric (i.e. S(x) = S(-x)), implying that all odd l
+components should be zero. Therefore, only the even elements are computed. Note
+that the spherical harmonics equations used here differ slightly from those
+conventionally used, in that the (-1)^m factor has been omitted. This should be
+taken into account in all subsequent calculations. Each volume in the output
+image corresponds to a different spherical harmonic component.
+
+Each volume will
+correspond to the following:
+
+volume 0: l = 0, m = 0 ;
+volume 1: l = 2, m = -2 (imaginary part of m=2 SH) ;
+volume 2: l = 2, m = -1 (imaginary part of m=1 SH)
+volume 3: l = 2, m = 0 ;
+volume 4: l = 2, m = 1 (real part of m=1 SH) ;
+volume 5: l = 2, m = 2 (real part of m=2 SH) ; etc…
+
+
+lmax = 2
+
+vol	l	m
+0	0	0
+1	2	-2
+2	2	-1
+3	2	0
+4	2	1
+5	2	2
+
+"""
+
+
+lmax_lut = {
+    6: 2,
+    15: 4,
+    28: 6,
+    45: 8
+}
+
+
+def get_l_m(lmax):
+    ell = []
+    m = []
+    for _ell in range(0, lmax + 1, 2):
+        for _m in range(-_ell, _ell+1):
+            ell.append(_ell)
+            m.append(_m)
+
+    return np.array(ell), np.array(m)
+
+
+def calculate_steinhardt(sh_l, sh_m, data, q_num):
+    l_mask = sh_l == q_num
+    images = data[..., l_mask]
+    scalar = 4 * np.pi / (2 * q_num + 1)
+    s_param = scalar * np.sum(images ** 2, 3)
+    return np.sqrt(s_param)
+
+
+if __name__ == "__main__":
+
+    if not len(sys.argv) == 4:
+        print(sys.argv)
+        print("USAGE: calculate_steinhardt.py input_sh.{nii/mif}[.gz] sh_order path/to/outputs")
+        sys.exit(22)
+    sh_image, sh_order, new_prefix = sys.argv[1:]
+    sh_order = int(sh_order)
+
+    using_temp_nifti = sh_image.endswith(".mif.gz") or sh_image.endswith(".mif")
+    temp_nifti_name = new_prefix + "_temp.nii"
+    if using_temp_nifti:
+        print("converting %s %s" % (sh_image, temp_nifti_name))
+        ret = subprocess.run(
+            ['mrconvert', '-strides', '-1,-2,3', sh_image, temp_nifti_name],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        sh_image = temp_nifti_name
+
+    # load the input nifti image
+    img = nb.load(sh_image)
+
+    # determine what the lmax was based on the number of volumes
+    num_vols = img.shape[3]
+    if not num_vols in lmax_lut:
+        raise ValueError("Not an SH image")
+    lmax = lmax_lut[num_vols]
+
+    # Do we have enough SH coeffs to calculate all the SOPs?
+    if sh_order > lmax:
+        raise Exception("Not enough SH coefficients (found {}) "
+                        "to calculate SOP order {}".format(
+                            num_vols, sh_order))
+    sh_l, sh_m = get_l_m(lmax)
+    sh_data = img.get_fdata()
+
+    # Normalize the FODs so they integrate to 1
+    sh_data = sh_data / sh_data[:, :, :, 0, None]
+
+    # to get a specific order
+    def calculate_order(order):
+        out_fname = new_prefix + "_q-%d_SOP.nii.gz" % order
+        order_data = calculate_steinhardt(sh_l, sh_m, sh_data, order)
+
+        # Save with the new name in the sandbox
+        nb.Nifti1Image(order_data, img.affine).to_filename(out_fname)
+
+    # calculate!
+    for order in range(2, sh_order + 2, 2):
+        calculate_order(order)
+
+    # Clean up if we made a temp
+    if using_temp_nifti:
+        os.remove(temp_nifti_name)
+EOT
+chmod +x code/calculate_steinhardt.py
 
 cat > code/qsirecon_zip.sh << "EOT"
 #!/bin/bash
@@ -256,12 +461,39 @@ singularity run \
     --recon-only \
     --skip-odf-reports \
     --freesurfer-input inputs/data/fmriprep/freesurfer \
-    --recon-spec ${PWD}/gqi_hsvs.json  \
+    --recon-spec ${PWD}/code/gqi_hsvs.json  \
     -w ${PWD}/.git/tmp/wkdir
 
-cd qsirecon
-rm `find . -name '*.tck'`
-7z a ../${subid}_qsirecon-0.16.0RC3_hsvs.zip qsirecon
+fib_file=$(find qsirecon -name '*gqi.fib.gz')
+ref_img=$(find qsirecon -name '*md_gqiscalar.nii.gz')
+mif=${fib_file/fib.gz/mif.gz}
+singularity exec \
+    --cleanenv -B ${PWD} \
+    pennlinc-containers/.datalad/environments/qsiprep-0-16-0RC3/image \
+    fib2mif \
+    --fib ${fib_file} \
+    --ref_image ${ref_img} \
+    --mif ${mif}
+
+stem=${mif/_gqi.mif.gz/_recon-gqi}
+singularity exec \
+    --cleanenv -B ${PWD} \
+    pennlinc-containers/.datalad/environments/qsiprep-0-16-0RC3/image \
+    python \
+    code/calculate_steinhardt.py \
+    ${mif} \
+    8 \
+    ${stem}
+
+# remove collision-causing files
+mv qsirecon/qsirecon/* qsirecon/
+
+rm -rf \
+   qsirecon/dataset_description.json \
+   qsirecon/dwiqc.json \
+   qsirecon/logs \
+   qsirecon/qsirecon
+
 rm -rf .git/tmp/wkdir
 
 EOT
