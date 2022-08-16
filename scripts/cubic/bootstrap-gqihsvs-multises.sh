@@ -129,8 +129,8 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
 #$ -l h_vmem=32G
-#$ -l tmpfree=200G
-#$ -pe threaded 2-4
+#$ -l tmpfree=20G
+#$ -pe threaded 2
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
 echo I\'m in $PWD using `which python`
@@ -150,7 +150,7 @@ cd ${CBICA_TMPDIR}
 # cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}"
+BRANCH="job-${JOB_ID}-${subid}-${sesid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
 
@@ -187,7 +187,9 @@ git checkout -b "${BRANCH}"
 # Do the run!
 
 datalad get -r pennlinc-containers
-datalad get -n -r inputs/data
+datalad get -n inputs/data/qsiprep
+datalad get -n inputs/data/fmriprep
+
 QSIPREP_ZIP=$(ls inputs/data/qsiprep/${subid}_${sesid}_qsiprep*.zip | cut -d '@' -f 1 || true)
 FREESURFER_ZIP=$(ls inputs/data/fmriprep/${subid}_${sesid}_free*.zip | cut -d '@' -f 1 || true)
 
@@ -203,12 +205,14 @@ fi
 
 datalad run \
     -i code/qsirecon_zip.sh \
+    -i code/calculate_steinhardt.py \
+    -i code/gqi_hsvs.json \
     -i ${QSIPREP_ZIP} \
     -i ${FREESURFER_ZIP} \
     --explicit \
-    -o ${subid}_qsirecon-0.16.0RC3_hsvs.zip \
-    -m "Run HSVS + sift for ${subid}" \
-    "bash ./code/qsirecon_zip.sh ${subid} ${QSIPREP_ZIP} ${FREESURFER_ZIP}"
+    -o qsirecon/${subid}/${sesid} \
+    -m "Run HSVS and GQI for ${subid}" \
+    "bash ./code/qsirecon_zip.sh ${subid} ${sesid} ${QSIPREP_ZIP} ${FREESURFER_ZIP}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -227,9 +231,7 @@ rm -rf $BRANCH
 
 echo SUCCESS
 # job handler should clean up workspace
-
 EOT
-
 chmod +x code/participant_job.sh
 
 
@@ -436,8 +438,9 @@ cat > code/qsirecon_zip.sh << "EOT"
 set -e -u -x
 
 subid="$1"
-qsiprep_zip="$2"
-freesurfer_zip="$3"
+sesid="$2"
+qsiprep_zip="$3"
+freesurfer_zip="$4"
 wd=${PWD}
 
 cd inputs/data/qsiprep
@@ -489,16 +492,16 @@ singularity exec \
     8 \
     ${stem}
 
-# remove collision-causing files
-mv qsirecon/qsirecon/* qsirecon/
-
-rm -rf \
-   qsirecon/dataset_description.json \
-   qsirecon/dwiqc.json \
-   qsirecon/logs \
-   qsirecon/qsirecon
+cd qsirecon/qsirecon/${subid}
+mv anat figures ${sesid}
+cd ..
+mv *html ${subid}/${sesid}/
+cd ..
+mv qsirecon/${subid} .
+rm -rf qsirecon
 
 rm -rf .git/tmp/wkdir
+
 
 EOT
 
@@ -569,4 +572,3 @@ echo SUCCESS
 
 #run last sge call to test
 #$(tail -n 1 code/qsub_calls.sh)
-
