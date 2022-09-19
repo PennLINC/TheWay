@@ -59,7 +59,7 @@ fi
 if [[ ! -d "${FREESURFERINPUT}/output_ria/alias/data" ]]
 then
     echo "There must be alias in the output ria store that points to the"
-    echo "QSIPrep output dataset"
+    echo "FREESURFER output dataset"
     # exit 1
 fi
 
@@ -206,7 +206,7 @@ datalad run \
     -o 'qsirecon' \
     --expand outputs \
     -m "Run HSVS + gqi + SOPs for ${subid}" \
-    "bash ./code/qsirecon_zip.sh ${subid} ${QSIPREP_ZIP} ${FREESURFER_ZIP}"
+    "bash ./code/fmriprep_zip.sh ${subid} ${FREESURFER_ZIP}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
