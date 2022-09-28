@@ -105,17 +105,17 @@ datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
 if [[ "${BIDS_INPUT_METHOD}" == "clone" ]]
 then
     echo "Cloning input dataset into analysis dataset"
-    datalad clone -d . ${BIDSINPUT} inputs/data
+    datalad clone -d . ${BIDSINPUT} inputs/data/BIDS
     # amend the previous commit with a nicer commit message
     git commit --amend -m 'Register input data dataset as a subdataset'
 else
     echo "WARNING: copying input data into repository"
-    mkdir -p inputs/data
+    mkdir -p inputs/data/BIDS
     cp -r ${BIDSINPUT}/* inputs/data
     datalad save -r -m "added input data"
 fi
 
-datalad clone -d . ria+file://${FREESURFERINPUT}/output_ria#~data inputs/data/fmriprep
+datalad clone -d . ria+file://${FREESURFERINPUT}/output_ria#~data inputs/data/freesurfer
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register freesurfer/fmriprep dataset as a subdataset'
 
@@ -188,24 +188,28 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-datalad get -n "inputs/data/${subid}"
+datalad get -n "inputs/data/BIDS/${subid}"
 # Reomve all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
-datalad get -n inputs/data/fmriprep
-FREESURFER_ZIP=$(ls inputs/data/fmriprep/${subid}_free*.zip | cut -d '@' -f 1 || true)
+datalad get -n inputs/data/freesurfer
+FREESURFER_ZIP=$(ls inputs/data/freesurfer/${subid}_free*.zip | cut -d '@' -f 1 || true)
+
+echo Freesurfer Zipfile
+echo ${FREESURFER_ZIP}
+
 if [ -z "${FREESURFER_ZIP}" ]; then
     echo "No freesurfer results found for ${subid}"
     exit 99
 fi
 datalad run \
     -i code/fmriprep_zip.sh \
-    -i inputs/data/${subid} \
-    -i inputs/data/*json \
+    -i inputs/data/BIDS/${subid} \
+    -i inputs/data/BIDS/*json \
     -i ${FREESURFER_ZIP} \
     --explicit \
-    -o 'qsirecon' \
+    -o ${subid}_fmriprep-22.0.0.zip \
     --expand outputs \
-    -m "Run HSVS + gqi + SOPs for ${subid}" \
+    -m "fmriprep:22.0.0 ${subid}" \
     "bash ./code/fmriprep_zip.sh ${subid} ${FREESURFER_ZIP}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -215,7 +219,8 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
+datalad uninstall -r inputs/data/BIDS
+datalad uninstall -r inputs/data/freesurfer
 git annex dead here
 cd ../..
 rm -rf $BRANCH
