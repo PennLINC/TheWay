@@ -222,7 +222,7 @@ subid="$1"
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
     pennlinc-containers/.datalad/environments/fmriprep-20-2-3/image \
-    inputs/data/freesurfer \
+    inputs/data \
     prep \
     participant \
     -w ${PWD}/.git/tmp/wkdir \
