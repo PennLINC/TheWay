@@ -242,7 +242,7 @@ cd $wd
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
     pennlinc-containers/.datalad/environments/fmriprep-22-0-0/image \
-    inputs/data/freesurfer \
+    inputs/data/BIDS \
     prep \
     participant \
     -w ${PWD}/.git/tmp/wkdir \
