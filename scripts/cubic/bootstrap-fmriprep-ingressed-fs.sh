@@ -188,10 +188,10 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 datalad get -r pennlinc-containers
-datalad get -n "inputs/data/BIDS/${subid}"
+datalad get -n -r "inputs/data/BIDS/${subid}"
 # Reomve all subjects we're not working on
 (cd inputs/data && rm -rf `find . -type d -name 'sub*' | grep -v $subid`)
-datalad get -n inputs/data/freesurfer
+datalad get -n "inputs/data/freesurfer"
 FREESURFER_ZIP=$(ls inputs/data/freesurfer/${subid}_free*.zip | cut -d '@' -f 1 || true)
 
 echo Freesurfer Zipfile
