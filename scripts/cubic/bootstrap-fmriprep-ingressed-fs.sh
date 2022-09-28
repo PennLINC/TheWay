@@ -119,7 +119,7 @@ datalad clone -d . ria+file://${FREESURFERINPUT}/output_ria#~data inputs/data/fr
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register freesurfer/fmriprep dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data/fmriprep -name '*.zip' | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
+SUBJECTS=$(find inputs/data/freesurfer -name '*.zip' | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -236,7 +236,7 @@ set -e -u -x
 subid="$1"
 freesurfer_zip="$2"
 wd=${PWD}
-cd ../fmriprep
+cd inputs/data/freesurfer
 7z x `basename ${freesurfer_zip}`
 cd $wd
 mkdir -p ${PWD}/.git/tmp/wdir
@@ -254,7 +254,7 @@ singularity run --cleanenv -B ${PWD} \
     --participant-label "$subid" \
     --force-bbr \
     --cifti-output 91k -v -v
-    --fs-subjects-dir inputs/data/fmriprep/freesurfer \
+    --fs-subjects-dir inputs/data/freesurfer/freesurfer \
 cd prep
 7z a ../${subid}_fmriprep-22.0.0.zip fmriprep
 rm -rf prep .git/tmp/wkdir
