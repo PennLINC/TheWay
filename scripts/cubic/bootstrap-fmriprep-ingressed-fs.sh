@@ -253,8 +253,8 @@ singularity run --cleanenv -B ${PWD} \
     --output-spaces MNI152NLin6Asym:res-2 \
     --participant-label "$subid" \
     --force-bbr \
-    --cifti-output 91k -v -v
-    --fs-subjects-dir inputs/data/freesurfer/freesurfer \
+    --cifti-output 91k -v -v \
+    --fs-subjects-dir inputs/data/freesurfer/freesurfer
 cd prep
 7z a ../${subid}_fmriprep-22.0.0.zip fmriprep
 rm -rf prep .git/tmp/wkdir
