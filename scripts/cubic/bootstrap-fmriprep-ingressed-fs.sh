@@ -66,7 +66,7 @@ fi
 set -e -u
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/fmriprep-ingressed-fs
+PROJECTROOT=${PWD}/fmriprep-func
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -207,9 +207,9 @@ datalad run \
     -i inputs/data/BIDS/*json \
     -i ${FREESURFER_ZIP} \
     --explicit \
-    -o ${subid}_fmriprep-22.0.0.zip \
+    -o ${subid}_fmriprep-22.0.2.zip \
     --expand outputs \
-    -m "fmriprep:22.0.0 ${subid}" \
+    -m "fmriprep:22.0.2 ${subid}" \
     "bash ./code/fmriprep_zip.sh ${subid} ${FREESURFER_ZIP}"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -241,9 +241,9 @@ cd inputs/data/freesurfer
 cd $wd
 mkdir -p ${PWD}/.git/tmp/wdir
 singularity run --cleanenv -B ${PWD} \
-    pennlinc-containers/.datalad/environments/fmriprep-22-0-0/image \
+    pennlinc-containers/.datalad/environments/fmriprep-22-0-2/image \
     inputs/data/BIDS \
-    prep \
+    prep/fmriprep \
     participant \
     -w ${PWD}/.git/tmp/wkdir \
     --n_cpus 1 \
@@ -256,7 +256,7 @@ singularity run --cleanenv -B ${PWD} \
     --cifti-output 91k -v -v \
     --fs-subjects-dir inputs/data/freesurfer/freesurfer
 cd prep
-7z a ../${subid}_fmriprep-22.0.0.zip fmriprep
+7z a ../${subid}_fmriprep-22.0.2.zip fmriprep
 rm -rf prep .git/tmp/wkdir
 EOT
 
