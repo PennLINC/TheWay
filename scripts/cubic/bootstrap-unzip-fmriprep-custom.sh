@@ -116,7 +116,7 @@ datalad run \
     -i code/get_files.sh \
     -i inputs/data/${subid}_fmriprep*.zip \
     --explicit \
-    -o ${subid}_ses-PNC1_task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii \
+    -o ${subid}*desc-confounds_timeseries.tsv \
     -m "unzipped ${subid}" \
     "bash code/get_files.sh inputs/data/${subid}_fmriprep*.zip"
 # file content first -- does not need a lock, no interaction with Git
@@ -149,15 +149,17 @@ unzip -n $ZIP_FILE 'fmriprep/*' -d .
 
 desired_files=fmriprep/${subid}/*/func/*desc-confounds_timeseries.tsv
 
-for desired_file in $desired_files do
+for desired_file in $desired_files; do
 # check if the desired file exists
-if [ -e ${desired_file} ]; then
+if [ -f ${desired_file} ];
+then
     # copy only the file we need out of fmriprep
     cp ${desired_file} .
 fi
 done
 # remove unzip dir
 rm -rf fmriprep
+
 EOT
 
 chmod +x code/get_files.sh
