@@ -147,14 +147,15 @@ subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
 # unzip outputs
 unzip -n $ZIP_FILE 'fmriprep/*' -d .
 
-desired_file=fmriprep/${subid}/*/func/*task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii
+desired_files=fmriprep/${subid}/*/func/*desc-confounds_timeseries.tsv
 
+for desired_file in $desired_files do
 # check if the desired file exists
 if [ -e ${desired_file} ]; then
     # copy only the file we need out of fmriprep
     cp ${desired_file} .
 fi
-
+done
 # remove unzip dir
 rm -rf fmriprep
 EOT
