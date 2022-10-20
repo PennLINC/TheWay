@@ -159,7 +159,7 @@ fi
 done
 # remove unzip dir
 rm -rf fmriprep
-
+               
 EOT
 
 chmod +x code/get_files.sh
