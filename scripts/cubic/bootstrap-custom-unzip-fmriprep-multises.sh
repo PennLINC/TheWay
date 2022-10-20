@@ -149,7 +149,7 @@ sesid=$(basename $ZIP_FILE | cut -d '_' -f 2)
 
 # unzip outputs
 unzip -n $ZIP_FILE 'fmriprep/*' -d .
-desired_files=fmriprep/${subid}_${sesid}/*/func/*desc-confounds_timeseries.tsv
+desired_files=fmriprep/${subid}/${sesid}/func/*desc-confounds_timeseries.tsv
 for desired_file in $desired_files; do
 # check if the desired file exists
 if [ -f ${desired_file} ];
