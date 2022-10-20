@@ -18,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/DERIVATIVES
+PROJECTROOT=${PWD}/FMRIPREP-UNZIPPED
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
