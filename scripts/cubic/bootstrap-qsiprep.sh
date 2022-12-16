@@ -185,8 +185,8 @@ datalad run \
     -i inputs/data/*json \
     -i pennlinc-containers/.datalad/environments/qsiprep-0-16-1/image \
     --explicit \
-    -o ${subid}_qsiprep-0.14.3.zip \
-    -m "qsiprep:0.14.3 ${subid}" \
+    -o ${subid}_qsiprep-0.16.1.zip \
+    -m "qsiprep:0.16.1 ${subid}" \
     "bash ./code/qsiprep_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -233,7 +233,7 @@ singularity run --cleanenv -B ${PWD} \
     --output-resolution 1.5
 
 cd prep
-7z a ../${subid}_qsiprep-0.14.3.zip qsiprep
+7z a ../${subid}_qsiprep-0.16.1.zip qsiprep
 rm -rf prep .git/tmp/wkdir
 
 EOT
