@@ -18,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/FMRIPREP
+PROJECTROOT=${PWD}/FMRIPREP_UNZIPPED
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -68,7 +68,7 @@ datalad install -d . -r --source ${DERIVATIVE_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-ZIPS=$(find inputs/data -name 'sub-*fmriprep*' | cut -d '/' -f 3 | sort)
+ZIPS=$(find inputs/data -name 'sub-*freesurfer*' | cut -d '/' -f 3 | sort)
 if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
@@ -114,11 +114,13 @@ git checkout -b "${BRANCH}"
 html=${subid}.html
 datalad run \
     -i code/get_files.sh \
-    -i inputs/data/${subid}_fmriprep*.zip \
+    -i inputs/data/${subid}_freesurfer*.zip \
     --explicit \
-    -o ${subid}*desc-confounds_timeseries.tsv \
+    -o ${subid}/stats/*h.aparc.stats \
+    -o ${subid}/stats/aseg.stats \
+    -o ${subid}*/surf/*h.thickness \
     -m "unzipped ${subid}" \
-    "bash code/get_files.sh inputs/data/${subid}_fmriprep*.zip"
+    "bash code/get_files.sh inputs/data/${subid}_freesurfer*.zip"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -143,23 +145,18 @@ cat > code/get_files.sh << "EOT"
 set -e -u -x
 ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
-
 # unzip outputs
-unzip -n $ZIP_FILE 'fmriprep/*' -d .
-
-desired_files=fmriprep/${subid}/*/func/*desc-confounds_timeseries.tsv
-
-for desired_file in $desired_files; do
+unzip -n $ZIP_FILE 'freesurfer/*' -d .
+desired_file_1=freesurfer/${subid}/stats/*h.aparc.stats
+desired_file_2=freesurfer/${subid}/stats/aseg.stats
+desired_file_3=freesurfer/${subid}/surf/*h.thickness
 # check if the desired file exists
-if [ -f ${desired_file} ];
-then
-    # copy only the file we need out of fmriprep
-    cp ${desired_file} .
+if [ -e ${desired_file_3} ]; then
+    # copy only the files we need out of freesurfer
+    cp ${desired_file_1} ${desired_file_2} ${desired_file_3} .
 fi
-done
 # remove unzip dir
-rm -rf fmriprep
-               
+rm -rf freesurfer
 EOT
 
 chmod +x code/get_files.sh
