@@ -63,9 +63,9 @@ cd analysis
 
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
-datalad create-sibling-ria -s output "${output_store}"
+datalad create-sibling-ria -s output "${output_store}" --new-store-ok
 pushremote=$(git remote get-url --push output)
-datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
+datalad create-sibling-ria -s input --storage-sibling off "${input_store}" --new-store-ok
 
 # register the input dataset
 echo "Cloning input dataset into analysis dataset"

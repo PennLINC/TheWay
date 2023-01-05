@@ -204,7 +204,7 @@ echo TMPDIR TO DELETE
 echo ${BRANCH}
 
 datalad uninstall -r --nocheck --if-dirty ignore inputs/data
-datalad drop -r . --nocheck
+datalad drop -r . --nocheck --reckless kill
 git annex dead here
 cd ../..
 rm -rf $BRANCH

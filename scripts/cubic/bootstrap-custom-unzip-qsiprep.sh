@@ -18,7 +18,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/FMRIPREP
+PROJECTROOT=${PWD}/QSIPREP
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -38,7 +38,7 @@ DERIVATIVE_BOOTSTRAP_DIR=$1
 DERIVATIVE_INPUT=ria+file://${DERIVATIVE_BOOTSTRAP_DIR}"/output_ria#~data"
 if [[ -z ${DERIVATIVE_BOOTSTRAP_DIR} ]]
 then
-    echo "Required argument is the path to the fmriprep bootstrap directory."
+    echo "Required argument is the path to the qsiprep bootstrap directory."
     echo "This directory should contain analysis/, input_ria/ and output_ria/."
     # exit 1
 fi
@@ -68,7 +68,7 @@ datalad install -d . -r --source ${DERIVATIVE_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-ZIPS=$(find inputs/data -name 'sub-*fmriprep*' | cut -d '/' -f 3 | sort)
+ZIPS=$(find inputs/data -name 'sub-*qsiprep*' | cut -d '/' -f 3 | sort)
 if [ -z "${ZIPS}" ]
 then
     echo "No subjects found in input data"
@@ -114,11 +114,13 @@ git checkout -b "${BRANCH}"
 html=${subid}.html
 datalad run \
     -i code/get_files.sh \
-    -i inputs/data/${subid}_fmriprep*.zip \
+    -i inputs/data/${subid}_qsiprep*.zip \
     --explicit \
-    -o ${subid}_ses-PNC1_task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii \
+    -o ${subid}*_desc-SliceQC_dwi.json \
+    -o ${subid}*_dwiqc.json \
+    -o -o ${subid}*_desc-ImageQC_dwi.csv \
     -m "unzipped ${subid}" \
-    "bash code/get_files.sh inputs/data/${subid}_fmriprep*.zip"
+    "bash code/get_files.sh inputs/data/${subid}_qsiprep*.zip"
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
 # and the output branch
@@ -143,20 +145,18 @@ cat > code/get_files.sh << "EOT"
 set -e -u -x
 ZIP_FILE=$1
 subid=$(basename $ZIP_FILE | cut -d '_' -f 1)
-
 # unzip outputs
-unzip -n $ZIP_FILE 'fmriprep/*' -d .
-
-desired_file=fmriprep/${subid}/*/func/*task-rest_acq-singleband_space-fsLR_den-91k_bold.dtseries.nii
-
+unzip -n $ZIP_FILE 'qsiprep/*' -d .
+desired_file_1=qsiprep/${subid}/*/dwi/*_desc-ImageQC_dwi.csv
+desired_file_2=qsiprep/${subid}/*/dwi/*_desc-SliceQC_dwi.json
+desired_file_3=qsiprep/${subid}/*/dwi/*_dwiqc.json
 # check if the desired file exists
-if [ -e ${desired_file} ]; then
-    # copy only the file we need out of fmriprep
-    cp ${desired_file} .
+if [ -e ${desired_file_3} ]; then
+    # copy only the files we need out of qsiprep
+    cp ${desired_file_1} ${desired_file_2} ${desired_file_3} .
 fi
-
 # remove unzip dir
-rm -rf fmriprep
+rm -rf qsiprep
 EOT
 
 chmod +x code/get_files.sh
