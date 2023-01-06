@@ -218,7 +218,7 @@ cd inputs/data
 7z x ${subid}_fmriprep-22.0.2.zip
 cd $wd
 
-mkdir -p ${PWD}/.git/tmp/wdir
+mkdir -p ${PWD}/.git/tmp/wkdir
 export SINGULARITYENV_TEMPLATEFLOW_HOME='~/.cache/templateflow'
 singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcpd-0-3-0/image inputs/data/fmriprep xcp participant \
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir -vvv
@@ -226,6 +226,7 @@ singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/x
 --despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti -vvv
 cd xcp
 7z a ../${subid}_xcp-0-3-0.zip xcp_d
+cd ..
 rm -rf prep .git/tmp/wkdir
 EOT
 
