@@ -134,7 +134,7 @@ subid="$3"
 # change into the cluster-assigned temp directory. Not done by default in SGE
 cd ${CBICA_TMPDIR}
 # OR Run it on a shared network drive
-# cd /cbica/comp_space/$(basename $HOME)
+#cd /cbica/comp_space/$(basename $HOME)
 
 # Used for the branch names and the temp dir
 BRANCH="job-${JOB_ID}-${subid}"
@@ -178,9 +178,10 @@ datalad get -r pennlinc-containers
 datalad run \
     -i code/xcp_zip.sh \
     -i inputs/data/${subid}*fmriprep*.zip \
+    -i pennlinc-containers/.datalad/environments/xcpd-0-3-0/image \
     --explicit \
-    -o ${subid}_xcp-0-0-8.zip \
-    -m "xcp-abcd-run ${subid}" \
+    -o ${subid}_xcp-0-3-0.zip \
+    -m "xcp_d-run ${subid}" \
     "bash ./code/xcp_zip.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
@@ -214,17 +215,17 @@ subid="$1"
 wd=${PWD}
 
 cd inputs/data
-7z x ${subid}_fmriprep-20.2.3.zip
+7z x ${subid}_fmriprep-22.0.2.zip
 cd $wd
 
 mkdir -p ${PWD}/.git/tmp/wdir
 export SINGULARITYENV_TEMPLATEFLOW_HOME='~/.cache/templateflow'
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
---despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir
-singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcp-abcd-0-0-8/image inputs/data/fmriprep xcp participant \
---despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcpd-0-3-0/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir -vvv
+singularity run --cleanenv -B ${PWD} pennlinc-containers/.datalad/environments/xcpd-0-3-0/image inputs/data/fmriprep xcp participant \
+--despike --lower-bpf 0.01 --upper-bpf 0.08 --participant_label $subid -p 36P -f 10 -w ${PWD}/.git/tmp/wkdir --cifti -vvv
 cd xcp
-7z a ../${subid}_xcp-0-0-8.zip xcp_abcd
+7z a ../${subid}_xcp-0-3-0.zip xcp_d
 rm -rf prep .git/tmp/wkdir
 EOT
 
