@@ -167,7 +167,7 @@ datalad get -r pennlinc-containers
 mkdir -p ${PWD}/inputs/data
 set +e
 cp -r -L ${FMRIPREP_INPUT}/${subid} ${PWD}/inputs/data
-set -e
+# set -e
 datalad run \
     -i code/xcp_zip.sh \
     -i ${PWD}/inputs/data \
