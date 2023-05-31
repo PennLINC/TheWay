@@ -32,33 +32,7 @@ echo USING DATALAD VERSION ${DATALAD_VERSION}
 
 ##  qsiprep input
 QSIPREPINPUT=$1
-if [[ -z ${QSIPREPINPUT} ]]
-then
-    echo "Required argument is an identifier of the QSIPrep output zips"
-    # exit 1
-fi
-
-if [[ ! -d "${QSIPREPINPUT}/output_ria/alias/data" ]]
-then
-    echo "There must be alias in the output ria store that points to the"
-    echo "QSIPrep output dataset"
-    # exit 1
-fi
-
-##  qsirecon input
 FREESURFERINPUT=$2
-if [[ -z ${FREESURFERINPUT} ]]
-then
-    echo "Required argument is an identifier of the FreeSurfer output zips"
-    # exit 1
-fi
-
-if [[ ! -d "${FREESURFERINPUT}/output_ria/alias/data" ]]
-then
-    echo "There must be alias in the output ria store that points to the"
-    echo "Freesurfer output dataset"
-    # exit 1
-fi
 
 set -e -u
 
@@ -98,26 +72,24 @@ datalad create-sibling-ria -s output "${output_store}" --new-store-ok
 pushremote=$(git remote get-url --push output)
 datalad create-sibling-ria -s input --storage-sibling off "${input_store}" --new-store-ok
 
-echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ria+ssh://${QSIPREPINPUT} inputs/data/qsiprep
-git commit --amend -m 'Register qsiprep results dataset as a subdataset'
-datalad clone -d . ria+ssh://${FREESURFERINPUT} inputs/data/fmriprep
-# amend the previous commit with a nicer commit message
-git commit --amend -m 'Register freesurfer/fmriprep dataset as a subdataset'
+mkdir -p inputs/data
 
-SUBJECTS=$(find inputs/data/qsiprep -name '*.zip' | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
+SUBJECTS=$(while read line; do echo "$line";done < /cbica/home/mehtaka/Holmes_Collab/HBN_list.txt) # uploaded separately to this repo
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
     # exit 1
 fi
 
-cd ${PROJECTROOT}
-
+set +u
 CONTAINERDS=$3
-if [[ ! -z "${CONTAINERDS}" ]]; then
-    datalad clone ${CONTAINERDS} pennlinc-containers
-fi
+set -u
+#if [[ ! -z "${CONTAINERDS}" ]]; then
+cd ${PROJECTROOT}
+datalad clone ${CONTAINERDS} pennlinc-containers
+## Add the containers as a subdataset
+cd pennlinc-containers
+
 
 cd ${PROJECTROOT}/analysis
 datalad install  -d . --source ${PROJECTROOT}/pennlinc-containers
@@ -129,7 +101,7 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #$ -l hostname=!compute-fed*
 #$ -S /bin/bash
-#$ -l h_vmem=32G
+#$ -l h_vmem=320G
 #$ -l tmpfree=200G
 #$ -pe threaded 2-4
 # Set up the correct conda environment
@@ -185,10 +157,20 @@ git checkout -b "${BRANCH}"
 # ------------------------------------------------------------------------------
 # Do the run!
 
+
+FMRIPREP_INPUT=/cbica/home/mehtaka/HBN_FMRIPREP
+QSIPREP_INPUT=/cbica/home/mehtaka/HBN_QSIPrep
+PROJECT_ROOT=/cbica/home/mehtaka/Holmes_Collab/hsvs
 datalad get -r pennlinc-containers
-datalad get -r -n -R 1 inputs/data
-QSIPREP_ZIP=$(ls inputs/data/qsiprep/${subid}_qsiprep*.zip | cut -d '@' -f 1 || true)
-FREESURFER_ZIP=$(ls inputs/data/fmriprep/${subid}_free*.zip | cut -d '@' -f 1 || true)
+mkdir -p ${PWD}/inputs/data/fmriprep
+mkdir -p ${PWD}/inputs/data/qsiprep
+set +e
+cp -r -L ${FMRIPREP_INPUT}/*${subid}* ${PWD}/inputs/data/fmriprep
+cp -r -L ${QSIPREP_INPUT}/*${subid}* ${PWD}/inputs/data/qsiprep
+set -e
+QSIPREP_ZIP=${PWD}/inputs/data/qsiprep/*${subid}*.zip
+FREESURFER_ZIP=${PWD}/inputs/data/fmriprep/*${subid}*.zip
+
 datalad run \
     -i code/qsirecon_zip.sh \
     -i ${QSIPREP_ZIP} \
@@ -310,7 +292,7 @@ datalad save -m "SGE submission setup" code/ .gitignore
 # cleanup - we have generated the job definitions, we do not need to keep a
 # massive input dataset around. Having it around wastes resources and makes many
 # git operations needlessly slow
-datalad uninstall -r --nocheck inputs/data
+# datalad uninstall -r --nocheck inputs/data
 
 
 # make sure the fully configured output dataset is available from the designated
