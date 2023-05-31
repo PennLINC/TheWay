@@ -79,7 +79,7 @@ else
     mkdir -p inputs/data
 fi
 
-SUBJECTS=$(while read line; do echo "$line";done < /cbica/home/mehtaka/run_xcp_HCPYA/HCPYA_list.txt)
+SUBJECTS=$(while read line; do echo "$line";done < /cbica/home/mehtaka/run_xcp_HCPYA/HCPYA_list.txt) # Uploaded separately to this repository
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -223,7 +223,8 @@ rm -rf prep .git/tmp/wkdir
 EOT
 
 chmod +x code/xcp_zip.sh
-cp ${FREESURFER_HOME}/license.txt code/license.txt
+cp ${FREESURFER_HOME}/license.
+code/license.txt
 
 mkdir logs
 echo .SGE_datalad_lock >> .gitignore
