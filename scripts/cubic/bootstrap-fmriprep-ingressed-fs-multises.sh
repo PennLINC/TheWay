@@ -111,7 +111,7 @@ datalad clone -d . ria+ssh://${FREESURFERINPUT} inputs/data/freesurfer
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register freesurfer/fmriprep dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
+SUBJECTS=$(find inputs/data/BIDS -type d -name 'sub-*' | cut -d '/' -f 3 | sort)
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -310,7 +310,7 @@ dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
 pushgitremote=$(git remote get-url --push output)
 eo_args="-e ${PWD}/logs -o ${PWD}/logs"
 for subject in ${SUBJECTS}; do
-  SESSIONS=$(ls  inputs/data/$subject | grep ses- | cut -d '/' -f 1)
+  SESSIONS=$(ls  inputs/data/BIDS/$subject | grep ses- | cut -d '/' -f 1)
   for session in ${SESSIONS}; do
     echo "qsub -cwd ${env_flags} -N fp${subject}_${session} ${eo_args} \
     ${PWD}/code/participant_job.sh \
