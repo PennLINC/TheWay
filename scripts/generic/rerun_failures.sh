@@ -10,6 +10,9 @@ echo found $nfails unsuccessful runs
 
 subjects=$(echo $fails | tr " " "\n" | \
             sed 's/.*sub-\([A-Za-z0-9][A-Za-z0-9]*\)\.e.*/sub-\1/')
+            
+#for array scripts use: 
+#subjects=$(cat $fails |grep "subid=sub-*"| cut -c 9-)
 
 
 >code/qsub_calls2.sh
