@@ -19,6 +19,8 @@ subjects=$(echo $fails | tr " " "\n" | \
 for subject in $subjects
 do
     grep $subject code/qsub_calls.sh >> code/qsub_calls2.sh
+    #for array scripts use: 
+    #grep -m 1 $subject code/qsub_calls.sh >> code/qsub_calls2.sh
 done
 
 
