@@ -20,8 +20,7 @@ fi
 echo USING DATALAD VERSION ${DATALAD_VERSION}
 
 ##  fmriprep input
-#FREESURFER_INPUT=$1
-FREESURFER_INPUT=/cbica/projects/RBC/freesurfer_stats/input_data/PNC_fmriprep_fs
+FREESURFER_INPUT=$1
 if [[ -z ${FREESURFER_INPUT} ]]
 then
     echo "Required argument is an identifier of the freesurfer output zips"
@@ -88,7 +87,7 @@ datalad clone -d . ${FREESURFER_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -name '*freesurfer*.zip' | cut -d '/' -f 3 | cut -d '_' -f 1 | sort | uniq)
+SUBJECTS=$(find inputs/data -name '*freesurfer*.zip' | sed 's/_freesurfer-20.2.3.*$//' | sort | uniq )
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -100,10 +99,6 @@ datalad install -d . --source ${PROJECTROOT}/fstabulate-containers
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
-#$ -S /bin/bash
-#$ -l h_vmem=12G
-#$ -l tmpfree=25G
-#$ -l h_rt=6:00:00
 
 # Set up the correct conda environment
 source ${CONDA_PREFIX}/bin/activate base
@@ -165,16 +160,15 @@ datalad get -n inputs/data
 
 datalad run \
     -i inputs/data/${subid}*freesurfer*.zip \
-    -i code/license.txt \
     --explicit \
-    -o ${subid}/${subid}_freesurfer.tar.xz \
-    -o ${subid}/${subid}_fsaverage.tar.xz \
-    -o ${subid}/${subid}_fsLR_den-164k.tar.xz \
-    -o ${subid}/${subid}_regionsurfacestats.tsv \
-    -o ${subid}/${subid}_brainmeasures.tsv \
-    -o ${subid}/${subid}_brainmeasures.json \
+    -o freesurfer/${subid}/${subid}_freesurfer.tar.xz \
+    -o freesurfer/${subid}/${subid}_fsaverage.tar.xz \
+    -o freesurfer/${subid}/${subid}_fsLR_den-164k.tar.xz \
+    -o freesurfer/${subid}/${subid}_regionsurfacestats.tsv \
+    -o freesurfer/${subid}/${subid}_brainmeasures.tsv \
+    -o freesurfer/${subid}/${subid}_brainmeasures.json \
     -m "Extract freesurfer data for ${subid}" \
-    "bash ./code/extract_and_tabulate.sh ${subid}"
+    "bash ./code/extract_freesurfer.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -186,14 +180,26 @@ git annex dead here
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 
-datalad drop -r . --nocheck
-datalad uninstall -r inputs/data
+# Clean up the input data
+cd inputs/data
 git annex dead here
+datalad drop --reckless kill .
 cd ../..
+
+# Clean up the container dataset
+cd fstabulate-containers
+git annex dead here
+datalad drop . --reckless kill
+cd ..
+
+# Clean up the temporary workspace
+datalad drop . --reckless kill
+
 rm -rf $BRANCH
 
 echo SUCCESS
 # job handler should clean up workspace
+
 EOT
 
 chmod +x code/participant_job.sh
@@ -247,14 +253,44 @@ wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 ################################################################################
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
-echo '#!/bin/bash' > code/qsub_calls.sh
-dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
-pushgitremote=$(git remote get-url --push output)
-eo_args="-e ${PWD}/logs -o ${PWD}/logs"
+# echo '#!/bin/bash' > code/qsub_calls.sh
+# dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
+# pushgitremote=$(git remote get-url --push output)
+# eo_args="-e ${PWD}/logs -o ${PWD}/logs"
+# for subject in ${SUBJECTS}; do
+#   echo "qsub -cwd ${env_flags} -N qsirecon${subject} ${eo_args} \
+#   ${PWD}/code/participant_job.sh \
+#   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
+# done
+# datalad save -m "SGE submission setup" code/ .gitignore
+
+
+cat > code/qsub_array.sh << "EOT"
+#!/bin/bash
+#$ -S /bin/bash
+#$ -l h_vmem=12G
+#$ -l h_rt=6:00:00
+#$ -N fstabulate
+EOT
+nsubs=$(echo $SUBJECTS | wc -w)
+echo '#$ -t 1-'${nsubs} >> code/qsub_array.sh
+
+
+echo dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" >> code/qsub_array.sh
+echo pushgitremote=$(git remote get-url --push output) >> code/qsub_array.sh
+echo eo_args="-e ${PWD}/logs -o ${PWD}/logs" >> code/qsub_array.sh
+echo DSLOCKFILE=${PWD}/.SGE_datalad_lock >> code/qsub_array.sh
+
+cat >> code/qsub_array.sh << "EOT"
+
+subid=$(head -n ${SGE_TASK_ID} ${PWD}/code/subject_ids.txt | tail -n 1)
+bash ${PWD}/code/participant_job.sh ${dssource} ${pushgitremote} ${subid}
+EOT
+
+# Get a list of subject codes to run
+>code/subject_ids.txt
 for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N qsirecon${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
+  echo "${subject}" >> code/subject_ids.txt
 done
 datalad save -m "SGE submission setup" code/ .gitignore
 
@@ -270,7 +306,7 @@ datalad uninstall -r --nocheck inputs/data
 
 # make sure the fully configured output dataset is available from the designated
 # store for initial cloning and pushing the results.
-datalad push -r --to input
+datalad push --to input
 datalad push --to output
 
 
