@@ -87,7 +87,7 @@ datalad clone -d . ${FREESURFER_INPUT} inputs/data
 # amend the previous commit with a nicer commit message
 git commit --amend -m 'Register input data dataset as a subdataset'
 
-SUBJECTS=$(find inputs/data -name '*freesurfer*.zip' | sed 's/_freesurfer-20.2.3.*$//' | sort | uniq )
+SUBJECTS=$(find inputs/data -name '*freesurfer*.zip' | xargs -n 1 basename | sed 's/_freesurfer-20.2.3.*$//' | sort | uniq )
 if [ -z "${SUBJECTS}" ]
 then
     echo "No subjects found in input data"
@@ -194,6 +194,7 @@ cd ..
 
 # Clean up the temporary workspace
 datalad drop . --reckless kill
+cd ..
 
 rm -rf $BRANCH
 
@@ -271,15 +272,17 @@ cat > code/qsub_array.sh << "EOT"
 #$ -l h_vmem=12G
 #$ -l h_rt=6:00:00
 #$ -N fstabulate
+#$ -cwd
 EOT
 nsubs=$(echo $SUBJECTS | wc -w)
 echo '#$ -t 1-'${nsubs} >> code/qsub_array.sh
+echo '#$ -e '"${PWD}/logs" >> code/qsub_array.sh
+echo '#$ -o '"${PWD}/logs" >> code/qsub_array.sh
 
 
 echo dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" >> code/qsub_array.sh
 echo pushgitremote=$(git remote get-url --push output) >> code/qsub_array.sh
-echo eo_args="-e ${PWD}/logs -o ${PWD}/logs" >> code/qsub_array.sh
-echo DSLOCKFILE=${PWD}/.SGE_datalad_lock >> code/qsub_array.sh
+echo export DSLOCKFILE=${PWD}/.SGE_datalad_lock >> code/qsub_array.sh
 
 cat >> code/qsub_array.sh << "EOT"
 
