@@ -201,6 +201,7 @@ rm -rf $BRANCH
 echo SUCCESS
 # job handler should clean up workspace
 
+
 EOT
 
 chmod +x code/participant_job.sh
@@ -254,18 +255,6 @@ wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 ################################################################################
 env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 
-# echo '#!/bin/bash' > code/qsub_calls.sh
-# dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
-# pushgitremote=$(git remote get-url --push output)
-# eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-# for subject in ${SUBJECTS}; do
-#   echo "qsub -cwd ${env_flags} -N qsirecon${subject} ${eo_args} \
-#   ${PWD}/code/participant_job.sh \
-#   ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
-# done
-# datalad save -m "SGE submission setup" code/ .gitignore
-
-
 cat > code/qsub_array.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
@@ -285,6 +274,12 @@ echo pushgitremote=$(git remote get-url --push output) >> code/qsub_array.sh
 echo export DSLOCKFILE=${PWD}/.SGE_datalad_lock >> code/qsub_array.sh
 
 cat >> code/qsub_array.sh << "EOT"
+
+MAXWAIT=2700
+sleeptime=$((RANDOM % MAXWAIT))
+echo Sleeping for ${sleeptime}
+sleep ${sleeptime}
+
 batch_file_name=subject_ids.txt
 subid=$(head -n ${SGE_TASK_ID} ${PWD}/code/${batch_file_name} | tail -n 1)
 bash ${PWD}/code/participant_job.sh ${dssource} ${pushgitremote} ${subid}
