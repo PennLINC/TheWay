@@ -269,8 +269,8 @@ env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
 cat > code/qsub_array.sh << "EOT"
 #!/bin/bash
 #$ -S /bin/bash
-#$ -l h_vmem=12G
-#$ -l h_rt=6:00:00
+#$ -l h_vmem=8G
+#$ -l h_rt=16:00:00
 #$ -N fstabulate
 #$ -cwd
 EOT
@@ -285,8 +285,8 @@ echo pushgitremote=$(git remote get-url --push output) >> code/qsub_array.sh
 echo export DSLOCKFILE=${PWD}/.SGE_datalad_lock >> code/qsub_array.sh
 
 cat >> code/qsub_array.sh << "EOT"
-
-subid=$(head -n ${SGE_TASK_ID} ${PWD}/code/subject_ids.txt | tail -n 1)
+batch_file_name=subject_ids.txt
+subid=$(head -n ${SGE_TASK_ID} ${PWD}/code/${batch_file_name} | tail -n 1)
 bash ${PWD}/code/participant_job.sh ${dssource} ${pushgitremote} ${subid}
 EOT
 
