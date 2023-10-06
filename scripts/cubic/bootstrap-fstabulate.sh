@@ -262,6 +262,7 @@ cat > code/qsub_array.sh << "EOT"
 #$ -l h_rt=16:00:00
 #$ -N fstabulate
 #$ -cwd
+#$ -tc 100
 EOT
 nsubs=$(echo $SUBJECTS | wc -w)
 echo '#$ -t 1-'${nsubs} >> code/qsub_array.sh
