@@ -22,23 +22,15 @@ done | tee code/has_results.txt
 
 mkdir -p code/merge_batches
 num_branches=$(wc -l < code/has_results.txt)
-CHUNKSIZE=5000
-set +e
-num_chunks=$(expr ${num_branches} / ${CHUNKSIZE})
-if [[ $num_chunks == 0 ]]; then
-    num_chunks=1
-fi
-set -e
-for chunknum in $(seq 1 $num_chunks)
-do
-    startnum=$(expr $(expr ${chunknum} - 1) \* ${CHUNKSIZE} + 1)
-    endnum=$(expr ${chunknum} \* ${CHUNKSIZE})
-    batch_file=code/merge_branches_$(printf %04d ${chunknum}).txt
-    [[ ${num_branches} -lt ${endnum} ]] && endnum=${num_branches}
-    branches=$(sed -n "${startnum},${endnum}p;$(expr ${endnum} + 1)q" code/has_results.txt)
-    echo ${branches} > ${batch_file}
-    git merge -m "merge results batch ${chunknum}/${num_chunks}" $(cat ${batch_file})
+CHUNKSIZE=200
 
+split -l ${CHUNKSIZE} --numeric-suffixes code/has_results.txt code/__results_batch
+chunks_files=$(find code -name '__results_batch*' | sort )
+num_chunks=$(echo ${chunks_files} | wc -w)
+for chunkfile in ${chunks_files}
+do
+    chunknum=$(basename ${chunkfile} | sed 's/__results_batch\([0-9][0-9]*\)/\1/')
+    git merge -m "merge results batch ${chunknum}/${num_chunks}" $(cat ${chunkfile})
 done
 
 # Push the merge back
