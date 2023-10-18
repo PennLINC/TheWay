@@ -216,6 +216,17 @@ wd=${PWD}
 
 cd inputs/data
 7z x ${subid}_freesurfer-*.zip
+if [[ ! -d ./freesurfer/${subid} ]]; then
+    if [[ ${subid} == *"_ses-"* ]]; then
+        echo "Detected a multises input. Renaming freesurfer directory"
+        subid_only=$(echo ${subid} | cut -d "_" -f 1)
+        mv "./freesurfer/${subid_only}" "./freesurfer/${subid}"
+    else
+        echo "unclear what the freesurfer directory should be for ${subid}"
+        exit 1
+    fi
+fi
+
 cd $wd
 
 mkdir -p freesurfer/${subid}
