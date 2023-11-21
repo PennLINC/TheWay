@@ -3,8 +3,12 @@
 # From an analysis directory, find stderr files that
 # dont contain UCCESS. Run from analysis/
 
-fails=$(grep -L "UCCESS" logs/*.e*)
+#fails=$(grep -L "UCCESS" logs/*.e*)
+#nfails=$(echo $fails | wc -w )
+# for XCP: 
+fails=$(grep -L "successfully" logs/*.e*)
 nfails=$(echo $fails | wc -w )
+
 
 echo found $nfails unsuccessful runs
 
