@@ -75,18 +75,22 @@ cat > code/participant_job.sh << "EOT"
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=80G
 #SBATCH --tmp=250G
-#SBATCH --array=1-ARRAYREPLACEME
-#SBATCH --output=../logs/xcp_d-%A.out
-#SBATCH --error=../logs/xcp_d-%A.err
+#SBATCH --time=10:00:00
+# Uncomment after the test run finishes
+###SBATCH --array=2-ARRAYREPLACEME
+#SBATCH --array=1-1
+#SBATCH --output=../logs/xcp_d-%A_%a.out
+#SBATCH --error=../logs/xcp_d-%A-%a.err
 
 # Filled in during the bootstrap
 EOT
-
-echo "SUBJECT_LIST=${SUBJECT_LIST}" >> code/participant_job.sh
-echo "DSLOCKFILE=${PWD}/.datalad_lock" >> code/participant_job.sh
-echo "dssource=${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" >> code/participant_job.sh
-echo "pushgitremote=$(git remote get-url --push output)" >> code/participant_job.sh
-echo "TEMPLATEFLOW_HOME=${TEMPLATEFLOW_HOME}" >> code/participant_job.sh
+{
+    echo "SUBJECT_LIST=${SUBJECT_LIST}";
+    echo "DSLOCKFILE=${PWD}/.datalad_lock";
+    echo "dssource=${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)";
+    echo "pushgitremote=$(git remote get-url --push output)";
+    echo "export TEMPLATEFLOW_HOME=${TEMPLATEFLOW_HOME}";
+} >> code/participant_job.sh
 
 cat >> code/participant_job.sh << "EOT"
 echo I\'m in $PWD using `which python`
@@ -140,7 +144,7 @@ datalad run \
     --explicit \
     -o ${subid}_xcp-0.9.1.zip \
     -m "Run XCPD on ${subid}" \
-    "python code/hcp_download_and_run.sh ${subid}"
+    "bash code/hcp_download_and_run.sh ${subid}"
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -166,9 +170,11 @@ sed -i "s/ARRAYREPLACEME/${njobs}/g" code/participant_job.sh
 chmod +x code/participant_job.sh
 
 mkdir logs
-echo .datalad_lock >> .gitignore
-echo logs >> .gitignore
-echo HCP-YA/ >> .gitignore
+{
+    echo .datalad_lock;
+    echo logs;
+    echo HCP-YA/;
+} >> .gitignore
 
 
 # The actual code that is datalad run
@@ -187,7 +193,7 @@ datalad clone \
     MNINonLinear
 
 # Download only the files we need for XCPD
-cd MNINonLinear 
+cd MNINonLinear
 datalad get \
     Results/?fMRI_*/SBRef_dc.nii.gz \
     Results/?fMRI_*/?fMRI_*_??.nii.gz \
