@@ -1,13 +1,11 @@
+#!/bin/bash
+
 ## NOTE ##
 # This workflow is derived from the Datalad Handbook
 
-## Ensure the environment is ready to bootstrap the analysis workspace
-# Check that we have conda installed
-#conda activate
-#if [ $? -gt 0 ]; then
-#    echo "Error initializing conda. Exiting"
-#    exit $?
-#fi
+# Change these as needed
+CONTAINERDS=/cbica/projects/RBC/production/xcpd-0.9.1-container
+SUBJECT_LIST=/cbica/projects/RBC/production/HCP-YA/fmri_list.txt
 
 DATALAD_VERSION=$(datalad --version)
 
@@ -36,27 +34,13 @@ then
     # exit 1
 fi
 
-##  hcp input
-BIDSINPUT=$1
-if [[ -z ${BIDSINPUT} ]]
-then
-    echo "Required argument is an identifier of the BIDS source"
-    # exit 1
-fi
-
-# Is it a directory on the filesystem?
-BIDS_INPUT_METHOD=clone
-if [[ -d "${BIDSINPUT}" ]]
-then
-    # Check if it's datalad
-    BIDS_DATALAD_ID=$(datalad -f '{infos[dataset][id]}' wtf -S \
-                      dataset -d ${BIDSINPUT} 2> /dev/null || true)
-    [ "${BIDS_DATALAD_ID}" = 'N/A' ] && BIDS_INPUT_METHOD=copy
-fi
-
 ## Start making things
 mkdir -p ${PROJECTROOT}
 cd ${PROJECTROOT}
+
+# Make a directory for templateflow
+TEMPLATEFLOW_HOME=${PROJECTROOT}/TEMPLATEFLOW_HOME
+mkdir -p ${TEMPLATEFLOW_HOME}
 
 # Jobs are set up to not require a shared filesystem (except for the lockfile)
 # ------------------------------------------------------------------------------
@@ -70,63 +54,14 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 datalad create -c yoda analysis
 cd analysis
 
-#get the workhorse script
-wget -O code/xcp-hcpya-bootstrap.py https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/xcp-hcpya-bootstrap.py
-
-cat >> code/dataset_description.json << "EOT"
-{
-    "Name": "fMRIPrep - fMRI PREProcessing workflow",
-    "BIDSVersion": "1.4.0",
-    "DatasetType": "derivative",
-    "GeneratedBy": [
-        {
-            "Name": "fMRIPrep",
-            "Version": "20.2.1",
-            "CodeURL": "https://github.com/nipreps/fmriprep/archive/20.2.1.tar.gz"
-        }
-    ],
-    "HowToAcknowledge": "Please cite our paper (https://doi.org/10.1038/s41592-018-0235-4), and include the generated citation boilerplate within the Methods section of the text."
-}
-EOT
-
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
-datalad create-sibling-ria -s output "${output_store}"
+datalad create-sibling-ria --new-store-ok -s output "${output_store}"
 pushremote=$(git remote get-url --push output)
-datalad create-sibling-ria -s input --storage-sibling off "${input_store}"
-
-
-echo "Cloning input dataset into analysis dataset"
-datalad clone -d . ${BIDSINPUT} inputs/data
-# amend the previous commit with a nicer commit message
-git commit --amend -m 'Register input data dataset as a subdataset'
-
-
-SUBJECTS=$(find inputs/data/HCP1200/ -maxdepth 1 | cut -d '/' -f 4 | cut -d '_' -f 1 | sort | uniq)
-if [ -z "${SUBJECTS}" ]
-then
-    echo "No subjects found in input data"
-    # exit 1
-fi
+datalad create-sibling-ria -s input --new-store-ok --storage-sibling off "${input_store}"
 
 cd ${PROJECTROOT}
 
-# Clone the containers dataset. If specified on the command, use that path
-
-#MUST BE AS NOT RBC USER
-# build the container in /cbica/projects/hcpya/dropbox
-# singularity build xcp-abcd-0.0.4.sif docker://pennlinc/xcp_abcd:0.0.4
-
-#AS RBC
-# then copy to /cbica/projects/hcpya/xcp-abcd-container
-# datalad create -D "xcp-abcd container".
-# do that actual copy
-# datalad containers-add --url ~/dropbox/xcp-abcd-0.0.4.sif xcp-abcd-0.0.4 --update
-
-#can delete
-#rm /cbica/projects/hcpya/dropbox/xcp-abcd-0.0.4.sif
-
-CONTAINERDS=~/xcp-abcd-container
 datalad clone ${CONTAINERDS} pennlinc-containers
 
 cd ${PROJECTROOT}/analysis
@@ -135,33 +70,47 @@ datalad install -d . --source ${PROJECTROOT}/pennlinc-containers
 ## the actual compute job specification
 cat > code/participant_job.sh << "EOT"
 #!/bin/bash
-#$ -S /bin/bash
-#$ -l h_vmem=12G
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=80G
+#SBATCH --tmp=250G
+#SBATCH --array=1-ARRAYREPLACEME
+#SBATCH --output=../logs/xcp_d-%A.out
+#SBATCH --error=../logs/xcp_d-%A.err
 
-# Set up the correct conda environment
-source ${CONDA_PREFIX}/bin/activate base
+# Filled in during the bootstrap
+EOT
+
+echo "SUBJECT_LIST=${SUBJECT_LIST}" >> code/participant_job.sh
+echo "DSLOCKFILE=${PWD}/.datalad_lock" >> code/participant_job.sh
+echo "dssource=${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)" >> code/participant_job.sh
+echo "pushgitremote=$(git remote get-url --push output)" >> code/participant_job.sh
+echo "TEMPLATEFLOW_HOME=${TEMPLATEFLOW_HOME}" >> code/participant_job.sh
+
+cat >> code/participant_job.sh << "EOT"
 echo I\'m in $PWD using `which python`
+
 # fail whenever something is fishy, use -x to get verbose logfiles
 set -e -u -x
-# Set up the remotes and get the subject id from the call
-dssource="$1"
-pushgitremote="$2"
-subid="$3"
-# change into the cluster-assigned temp directory. Not done by default in SGE
-#cd ${CBICA_TMPDIR}
-# OR Run it on a shared network drive
-cd /cbica/comp_space/$(basename $HOME)
+# Set up the remotes from the call
+subid=$(head -n ${SLURM_ARRAY_TASK_ID} ${SUBJECT_LIST} | tail -n 1)
+
+cd /cbica/comp_space/RBC
 # Used for the branch names and the temp dir
-BRANCH="job-${JOB_ID}-${subid}"
+BRANCH="job-${SLURM_JOB_ID}-${subid}"
 mkdir ${BRANCH}
 cd ${BRANCH}
+
 # get the analysis dataset, which includes the inputs as well
 # importantly, we do not clone from the lcoation that we want to push the
 # results to, in order to avoid too many jobs blocking access to
 # the same location and creating a throughput bottleneck
 datalad clone "${dssource}" ds
+
 # all following actions are performed in the context of the superdataset
 cd ds
+
 # in order to avoid accumulation temporary git-annex availability information
 # and to avoid a syncronization bottleneck by having to consolidate the
 # git-annex branch across jobs, we will only push the main tracking branch
@@ -171,9 +120,10 @@ cd ds
 # and we want to avoid progressive slowdown. Instead we only ever push
 # a unique branch per each job (subject AND process specific name)
 git remote add outputstore "$pushgitremote"
+
 # all results of this job will be put into a dedicated branch
 git checkout -b "${BRANCH}"
-echo GIT CHECKOUT FINISHED
+
 # we pull down the input subject manually in order to discover relevant
 # files. We do this outside the recorded call, because on a potential
 # re-run we want to be able to do fine-grained recomputing of individual
@@ -181,37 +131,26 @@ echo GIT CHECKOUT FINISHED
 # recomputation outside the scope of the original setup
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-# Do the run!
+
+# Fetch the sif file
 datalad get -r pennlinc-containers
-echo GET CONTAINERS FINISHED
+
+# Do the run!
 datalad run \
-    -i code/xcp-hcpya-bootstrap.py \
-    -i code/dataset_description.json \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*Atlas_MSMAll.dtseries.nii \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*LR.nii.gz* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*RL.nii.gz* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_AbsoluteRMS.txt \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/Movement_Regressors.txt \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/SBRef_dc.nii.gz \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*SBRef.nii.gz* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*CSF.txt* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/*WM.txt* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/ROIs/*2.nii.gz* \
-    -i inputs/data/HCP1200/${subid}/MNINonLinear/Results/**/brainmask_fs.2.nii.gz \
     --explicit \
-    -o ${subid}_xcp-0-0-4.zip \
-    -m "xcp-abcd-run ${subid}" \
-    "python code/xcp-hcpya-bootstrap.py ${subid}"
+    -o ${subid}_xcp-0.9.1.zip \
+    -m "Run XCPD on ${subid}" \
+    "python code/hcp_download_and_run.sh ${subid}"
+
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
+
 # and the output branch
 flock $DSLOCKFILE git push outputstore
 
 # remove tempdir
 echo TMPDIR TO DELETE
 echo ${BRANCH}
-datalad uninstall --nocheck --if-dirty ignore -r inputs/data
-datalad drop -r . --nocheck
 git annex dead here
 cd ../..
 rm -rf $BRANCH
@@ -220,16 +159,110 @@ echo SUCCESS
 # job handler should clean up workspace
 EOT
 
+# Set it up so that the array knows how many jobs to run
+njobs=$(wc -l ${SUBJECT_LIST} | cut -d ' ' -f 1)
+sed -i "s/ARRAYREPLACEME/${njobs}/g" code/participant_job.sh
+
 chmod +x code/participant_job.sh
 
-
-cp ${FREESURFER_HOME}/license.txt code/license.txt
-
 mkdir logs
-echo .SGE_datalad_lock >> .gitignore
+echo .datalad_lock >> .gitignore
 echo logs >> .gitignore
+echo HCP-YA/ >> .gitignore
+
+
+# The actual code that is datalad run
+cat > code/hcp_download_and_run.sh << "EOT"
+#!/bin/bash
+
+set -eux
+subid="${1}"
+WD=${PWD}
+
+# Create the input dataset into the working directory
+mkdir -p HCP-YA/${subid}
+cd HCP-YA/${subid}
+datalad clone \
+    https://hub.datalad.org/hcp-openaccess/${subid}-mninonlinear.git \
+    MNINonLinear
+
+# Download only the files we need for XCPD
+cd MNINonLinear 
+datalad get \
+    Results/?fMRI_*/SBRef_dc.nii.gz \
+    Results/?fMRI_*/?fMRI_*_??.nii.gz \
+    Results/?fMRI_*/?fMRI_*_??_Atlas_MSMAll.dtseries.nii \
+    Results/?fMRI_*/Movement_Regressors.txt \
+    Results/?fMRI_*/Movement_AbsoluteRMS.txt \
+    Results/?fMRI_*/brainmask_fs.2.nii.gz \
+    fsaverage_LR32k/*L.pial.32k_fs_LR.surf.gii \
+    fsaverage_LR32k/*R.pial.32k_fs_LR.surf.gii \
+    fsaverage_LR32k/*L.white.32k_fs_LR.surf.gii \
+    fsaverage_LR32k/*R.white.32k_fs_LR.surf.gii \
+    fsaverage_LR32k/*.L.thickness.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.R.thickness.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.L.corrThickness.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.R.corrThickness.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.L.curvature.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.R.curvature.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.L.sulc.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.R.sulc.32k_fs_LR.shape.gii \
+    fsaverage_LR32k/*.L.MyelinMap.32k_fs_LR.func.gii \
+    fsaverage_LR32k/*.R.MyelinMap.32k_fs_LR.func.gii \
+    fsaverage_LR32k/*.L.SmoothedMyelinMap.32k_fs_LR.func.gii \
+    fsaverage_LR32k/*.R.SmoothedMyelinMap.32k_fs_LR.func.gii \
+    T1w.nii.gz \
+    aparc+aseg.nii.gz \
+    brainmask_fs.nii.gz \
+    ribbon.nii.gz
+cd ${WD}
+
+
+# Run xcpd!
+mkdir -p ${PWD}/.git/tmp/wkdir
+apptainer run --containall \
+    -B "${PWD}" \
+    -B "${FREESURFER_HOME}"/license.txt:/license.txt \
+    -B "${TEMPLATEFLOW_HOME}:/templateflow_home" \
+    --env "TEMPLATEFLOW_HOME=/templateflow_home" \
+    ${PWD}/pennlinc-containers/.datalad/environments/xcpd-0-9-1/image \
+    "${PWD}/HCP-YA" \
+    "${PWD}/xcpd-0-9-1" \
+    participant \
+    --participant-label ${subid} \
+    --mode linc \
+    --input-type hcp \
+    --combine-runs \
+    -w "${PWD}/.git/tmp/wkdir" \
+    --omp-nthreads ${NSLOTS} \
+    --nprocs ${NSLOTS} \
+    --atlases \
+        4S1056Parcels \
+        4S156Parcels \
+        4S256Parcels \
+        4S356Parcels \
+        4S456Parcels \
+        4S556Parcels \
+        4S656Parcels \
+        4S756Parcels \
+        4S856Parcels \
+        4S956Parcels \
+        Glasser \
+        Gordon \
+        HCP \
+        Tian \
+    --fs-license-file /license.txt \
+    --stop-on-first-crash \
+    -vv
+
+# Zip the output directory
+rm -rfv xcpd-0-9-1/atlases
+7z a ${subid}_xcpd-0.9.1.zip xcpd-0-9-1
+rm -rf prep .git/tmp/wkdir
+EOT
 
 datalad save -m "Participant compute job implementation"
+
 
 # Add a script for merging outputs
 MERGE_POSTSCRIPT=https://raw.githubusercontent.com/PennLINC/TheWay/main/scripts/cubic/merge_outputs_postscript.sh
@@ -242,33 +275,7 @@ echo "outputsource=${output_store}#$(datalad -f '{infos[dataset][id]}' wtf -S da
 echo "cd ${PROJECTROOT}" >> code/merge_outputs.sh
 wget -qO- ${MERGE_POSTSCRIPT} >> code/merge_outputs.sh
 
-
-
-################################################################################
-# SGE SETUP START - remove or adjust to your needs
-################################################################################
-env_flags="-v DSLOCKFILE=${PWD}/.SGE_datalad_lock"
-
-echo '#!/bin/bash' > code/qsub_calls.sh
-dssource="${input_store}#$(datalad -f '{infos[dataset][id]}' wtf -S dataset)"
-pushgitremote=$(git remote get-url --push output)
-eo_args="-e ${PWD}/logs -o ${PWD}/logs"
-for subject in ${SUBJECTS}; do
-  echo "qsub -cwd ${env_flags} -N xcp${subject} ${eo_args} \
-  ${PWD}/code/participant_job.sh \
-  ${dssource} ${pushgitremote} ${subject} " >> code/qsub_calls.sh
-done
-chmod a+x code/qsub_calls.sh
-datalad save -m "SGE submission setup" code/ .gitignore
-
-################################################################################
-# SGE SETUP END
-################################################################################
-
-# cleanup - we have generated the job definitions, we do not need to keep a
-# massive input dataset around. Having it around wastes resources and makes many
-# git operations needlessly slow
-datalad uninstall -r --nocheck inputs/data
+datalad save -m "finish setup" code/ .gitignore
 
 
 # make sure the fully configured output dataset is available from the designated
@@ -276,19 +283,5 @@ datalad uninstall -r --nocheck inputs/data
 datalad push --to input
 datalad push --to output
 
-
-
-# Add an alias to the data in the RIA store
-RIA_DIR=$(find $PROJECTROOT/output_ria/???/ -maxdepth 1 -type d | sort | tail -n 1)
-mkdir -p ${PROJECTROOT}/output_ria/alias
-ln -s ${RIA_DIR} ${PROJECTROOT}/output_ria/alias/data
-
 # if we get here, we are happy
 echo SUCCESS
-
-#run last sge call to test
-#$(tail -n 1 code/qsub_calls.sh)
-
-#submit the jobs as a job 
-#chmod a+x code/qsub_calls.sh
-#qsub -l h_vmem=4G,s_vmem=4G -V -j y -b y -o /cbica/projects/hcpya/xcp/analysis/logs code/qsub_calls.sh
