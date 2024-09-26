@@ -5,7 +5,7 @@
 
 # Change these as needed
 CONTAINERDS=/cbica/projects/RBC/production/xcpd-0.9.1-container
-SUBJECT_LIST=/cbica/projects/RBC/production/HCP-YA/fmri_list.txt
+FULL_SUBJECT_LIST=/cbica/projects/RBC/production/HCP-YA/fmri_list.txt
 
 DATALAD_VERSION=$(datalad --version)
 
@@ -54,6 +54,10 @@ output_store="ria+file://${PROJECTROOT}/output_ria"
 datalad create -c yoda analysis
 cd analysis
 
+# Make a copy of the subject list in analysis/code
+SUBJECT_LIST=${PWD}/code/fmri_list.txt
+cp "${ORIGINAL_SUBJECT_LIST}" "${SUBJECT_LIST}"
+
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
 datalad create-sibling-ria --new-store-ok -s output "${output_store}"
@@ -72,15 +76,14 @@ cat > code/participant_job.sh << "EOT"
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=80G
-#SBATCH --tmp=250G
-#SBATCH --time=10:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=42G
+#SBATCH --time=17:00:00
 # Uncomment after the test run finishes
 ###SBATCH --array=2-ARRAYREPLACEME
 #SBATCH --array=1-1
 #SBATCH --output=../logs/xcp_d-%A_%a.out
-#SBATCH --error=../logs/xcp_d-%A-%a.err
+#SBATCH --error=../logs/xcp_d-%A_%a.err
 
 # Filled in during the bootstrap
 EOT
@@ -101,6 +104,7 @@ set -e -u -x
 subid=$(head -n ${SLURM_ARRAY_TASK_ID} ${SUBJECT_LIST} | tail -n 1)
 
 cd /cbica/comp_space/RBC
+
 # Used for the branch names and the temp dir
 BRANCH="job-${SLURM_JOB_ID}-${subid}"
 mkdir ${BRANCH}
@@ -139,12 +143,31 @@ git checkout -b "${BRANCH}"
 # Fetch the sif file
 datalad get -r pennlinc-containers
 
+sleep $((RANDOM % 2600))
+export NSLOTS="${SLURM_JOB_CPUS_PER_NODE}"
+
+# Set to where HCP data should be downloaded to
+export TMP="${TMP}"
+
 # Do the run!
+it_failed=0
 datalad run \
     --explicit \
     -o ${subid}_xcp-0.9.1.zip \
     -m "Run XCPD on ${subid}" \
-    "bash code/hcp_download_and_run.sh ${subid}"
+    "bash code/hcp_download_and_run.sh ${subid}" || it_failed=1
+
+# If the run failed, chmod the datalad contents so the batch system can
+# clean up the tempdir
+if [ ${it_failed} -gt 0 ]; then
+    echo DATALAD RUN FAILED: cleaning up workspace
+    chmod -R +w pennlinc-containers
+    rm -rf pennlinc-containers
+    exit 1
+fi
+
+# Give NFS a chance to be ok
+sleep 60
 
 # file content first -- does not need a lock, no interaction with Git
 datalad push --to output-storage
@@ -156,16 +179,18 @@ flock $DSLOCKFILE git push outputstore
 echo TMPDIR TO DELETE
 echo ${BRANCH}
 git annex dead here
+chmod -R +w pennlinc-containers
 cd ../..
 rm -rf $BRANCH
 
 echo SUCCESS
-# job handler should clean up workspace
 EOT
 
 # Set it up so that the array knows how many jobs to run
 njobs=$(wc -l ${SUBJECT_LIST} | cut -d ' ' -f 1)
 sed -i "s/ARRAYREPLACEME/${njobs}/g" code/participant_job.sh
+# Copy the subject list into the code/ directory
+cp ${SUBJECT_LIST} code/
 
 chmod +x code/participant_job.sh
 
@@ -185,54 +210,31 @@ set -eux
 subid="${1}"
 WD=${PWD}
 
+echo Using ${TMP} to download HCP-YA data
+
+# Configure datalad to run smoothly on compute nodes
+export DATALAD_LOCATIONS_CACHE=${WD}/.cache/datalad/
+export DATALAD_LOCATIONS_LOCKS=${DATALAD_LOCATIONS_CACHE}/locks
+export DATALAD_UI_PROGRESSBAR=none
+export DATALAD_UI_SUPPRESS__SIMILAR__RESULTS=False
+mkdir -p "${DATALAD_LOCATIONS_LOCKS}"
+
 # Create the input dataset into the working directory
-mkdir -p HCP-YA/${subid}
-cd HCP-YA/${subid}
-datalad clone \
-    https://hub.datalad.org/hcp-openaccess/${subid}-mninonlinear.git \
-    MNINonLinear
+mkdir -p ${TMP}/HCP-YA/${subid}
 
 # Download only the files we need for XCPD
-cd MNINonLinear
-datalad get \
-    Results/?fMRI_*/SBRef_dc.nii.gz \
-    Results/?fMRI_*/?fMRI_*_??.nii.gz \
-    Results/?fMRI_*/?fMRI_*_??_Atlas_MSMAll.dtseries.nii \
-    Results/?fMRI_*/Movement_Regressors.txt \
-    Results/?fMRI_*/Movement_AbsoluteRMS.txt \
-    Results/?fMRI_*/brainmask_fs.2.nii.gz \
-    fsaverage_LR32k/*L.pial.32k_fs_LR.surf.gii \
-    fsaverage_LR32k/*R.pial.32k_fs_LR.surf.gii \
-    fsaverage_LR32k/*L.white.32k_fs_LR.surf.gii \
-    fsaverage_LR32k/*R.white.32k_fs_LR.surf.gii \
-    fsaverage_LR32k/*.L.thickness.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.R.thickness.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.L.corrThickness.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.R.corrThickness.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.L.curvature.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.R.curvature.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.L.sulc.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.R.sulc.32k_fs_LR.shape.gii \
-    fsaverage_LR32k/*.L.MyelinMap.32k_fs_LR.func.gii \
-    fsaverage_LR32k/*.R.MyelinMap.32k_fs_LR.func.gii \
-    fsaverage_LR32k/*.L.SmoothedMyelinMap.32k_fs_LR.func.gii \
-    fsaverage_LR32k/*.R.SmoothedMyelinMap.32k_fs_LR.func.gii \
-    T1w.nii.gz \
-    aparc+aseg.nii.gz \
-    brainmask_fs.nii.gz \
-    ribbon.nii.gz
-cd ${WD}
-
+python code/download_hcp_bold.py ${subid} ${TMP}/HCP-YA/${subid}
 
 # Run xcpd!
 mkdir -p ${PWD}/.git/tmp/wkdir
 apptainer run --containall \
     -B "${PWD}" \
+    -B "${TMP}" \
     -B "${FREESURFER_HOME}"/license.txt:/license.txt \
     -B "${TEMPLATEFLOW_HOME}:/templateflow_home" \
     --env "TEMPLATEFLOW_HOME=/templateflow_home" \
     ${PWD}/pennlinc-containers/.datalad/environments/xcpd-0-9-1/image \
-    "${PWD}/HCP-YA" \
+    "${TMP}/HCP-YA" \
     "${PWD}/xcpd-0-9-1" \
     participant \
     --participant-label ${subid} \
@@ -261,13 +263,99 @@ apptainer run --containall \
     --stop-on-first-crash \
     -vv
 
+# Clear some space before zipping
+rm -rf ${PWD}/.git/tmp/wkdir
+
 # Zip the output directory
 rm -rfv xcpd-0-9-1/atlases
 7z a ${subid}_xcpd-0.9.1.zip xcpd-0-9-1
-rm -rf prep .git/tmp/wkdir
 EOT
 
-datalad save -m "Participant compute job implementation"
+
+cat > code/download_hcp_bold.py << "EOT"
+#!/usr/bin/env python
+# https://github.com/datalad/datalad/issues/7658
+
+import sys
+import datalad.api as dl
+from pathlib import Path
+
+subject = sys.argv[1]
+dl_dir = sys.argv[2]
+print(f'working on subject {subject}...')
+ds_url = f'https://hub.datalad.org/hcp-openaccess/{subject}-mninonlinear.git'
+
+patterns = [
+    "Results/*fMRI_*/SBRef_dc.nii.gz",
+    "Results/*fMRI_*/*fMRI_*_*.nii.gz",
+    "Results/*fMRI_*/*fMRI_*_*_Atlas_MSMAll.dtseries.nii",
+    "Results/*fMRI_*/Movement_Regressors.txt",
+    "Results/*fMRI_*/Movement_AbsoluteRMS.txt",
+    "Results/*fMRI_*/brainmask_fs.2.nii.gz",
+    "fsaverage_LR32k/*L.pial.32k_fs_LR.surf.gii",
+    "fsaverage_LR32k/*R.pial.32k_fs_LR.surf.gii",
+    "fsaverage_LR32k/*L.white.32k_fs_LR.surf.gii",
+    "fsaverage_LR32k/*R.white.32k_fs_LR.surf.gii",
+    "fsaverage_LR32k/*.L.thickness.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.R.thickness.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.L.corrThickness.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.R.corrThickness.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.L.curvature.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.R.curvature.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.L.sulc.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.R.sulc.32k_fs_LR.shape.gii",
+    "fsaverage_LR32k/*.L.MyelinMap.32k_fs_LR.func.gii",
+    "fsaverage_LR32k/*.R.MyelinMap.32k_fs_LR.func.gii",
+    "fsaverage_LR32k/*.L.SmoothedMyelinMap.32k_fs_LR.func.gii",
+    "fsaverage_LR32k/*.R.SmoothedMyelinMap.32k_fs_LR.func.gii",
+    "T1w.nii.gz",
+    "aparc+aseg.nii.gz",
+    "brainmask_fs.nii.gz",
+    "ribbon.nii.gz"
+]
+
+ds_path = Path(dl_dir) / 'MNINonLinear'
+ds = dl.clone(ds_url, path=ds_path)
+paths_to_get = []
+for fpattern in patterns:
+    paths_to_get.extend(ds_path.glob(fpattern))
+
+print(f"Attempting to get {len(paths_to_get)} files")
+print("using configuration:")
+dl.configuration()
+print("Downloading")
+try:
+    ds.get(
+        path=[pth.relative_to(ds.path) for pth in paths_to_get],
+        jobs=1,
+        on_failure="stop"
+    )
+except Exception as exc:
+    print(f"Failed with exception\n{exc}")
+    ds.drop(
+        path=paths_to_get,
+        what="all",
+        recursive=True,
+        reckless="kill")
+EOT
+
+# code to update the subject list
+cat > code/update_list.sh << "EOT"
+#!/bin/bash
+# run from code/
+
+(cd ../../output_ria/alias/data && git branch -a | grep job | cut -d '-' -f 3 | sort | uniq) > finished.txt
+
+backupf=previous_lists/$(printf '%(%Y-%m-%d)T\n' -1)_fmri_list.txt
+cp fmri_list.txt ${backupf}
+comm -23 fmri_list.txt finished.txt > _fmri_list.txt
+mv _fmri_list.txt fmri_list.txt
+numtodo=$(wc -l fmri_list.txt | cut -d ' ' -f 1)
+
+echo Need to process $numtodo more sessions
+EOT
+
+datalad save -m "Participant compute job submit/rerun implementation"
 
 
 # Add a script for merging outputs
@@ -288,6 +376,11 @@ datalad save -m "finish setup" code/ .gitignore
 # store for initial cloning and pushing the results.
 datalad push --to input
 datalad push --to output
+
+mkdir -p ${PROJECTROOT}/output_ria/alias
+cd ${PROJECTROOT}/output_ria/alias
+RIA_DIR=$(find ../???/ -maxdepth 1 -mindepth 1 -type d | sort | tail -n 1)
+ln -s ${RIA_DIR} data
 
 # if we get here, we are happy
 echo SUCCESS
