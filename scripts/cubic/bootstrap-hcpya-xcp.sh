@@ -4,7 +4,7 @@
 # This workflow is derived from the Datalad Handbook
 
 # Change these as needed
-CONTAINERDS=/cbica/projects/RBC/production/xcpd-0.9.1-container
+CONTAINERDS=/cbica/projects/RBC/production/HCP-YA/xcpd-0.9.1
 FULL_SUBJECT_LIST=/cbica/projects/RBC/production/HCP-YA/fmri_list.txt
 
 DATALAD_VERSION=$(datalad --version)
@@ -21,7 +21,7 @@ set -e -u
 
 
 ## Set up the directory that will contain the necessary directories
-PROJECTROOT=${PWD}/xcp
+PROJECTROOT=${PWD}/xcpd
 if [[ -d ${PROJECTROOT} ]]
 then
     echo ${PROJECTROOT} already exists
@@ -56,7 +56,7 @@ cd analysis
 
 # Make a copy of the subject list in analysis/code
 SUBJECT_LIST=${PWD}/code/fmri_list.txt
-cp "${ORIGINAL_SUBJECT_LIST}" "${SUBJECT_LIST}"
+cp "${FULL_SUBJECT_LIST}" "${SUBJECT_LIST}"
 
 # create dedicated input and output locations. Results will be pushed into the
 # output sibling and the analysis will start with a clone from the input sibling.
@@ -78,10 +78,11 @@ cat > code/participant_job.sh << "EOT"
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=42G
-#SBATCH --time=17:00:00
+#SBATCH --time=11:00:00
+#SBATCH --tmp=24G
 # Uncomment after the test run finishes
-###SBATCH --array=2-ARRAYREPLACEME
-#SBATCH --array=1-1
+###SBATCH --array=2-1098
+#SBATCH --array=1-10
 #SBATCH --output=../logs/xcp_d-%A_%a.out
 #SBATCH --error=../logs/xcp_d-%A_%a.err
 
@@ -103,7 +104,7 @@ set -e -u -x
 # Set up the remotes from the call
 subid=$(head -n ${SLURM_ARRAY_TASK_ID} ${SUBJECT_LIST} | tail -n 1)
 
-cd /cbica/comp_space/RBC
+cd /cbica/comp_space/RBC/scratch
 
 # Used for the branch names and the temp dir
 BRANCH="job-${SLURM_JOB_ID}-${subid}"
@@ -143,13 +144,13 @@ git checkout -b "${BRANCH}"
 # Fetch the sif file
 datalad get -r pennlinc-containers
 
-sleep $((RANDOM % 2600))
 export NSLOTS="${SLURM_JOB_CPUS_PER_NODE}"
 
 # Set to where HCP data should be downloaded to
 export TMP="${TMP}"
 
 # Do the run!
+sleep $((RANDOM % 2400))
 it_failed=0
 datalad run \
     --explicit \
@@ -190,7 +191,6 @@ EOT
 njobs=$(wc -l ${SUBJECT_LIST} | cut -d ' ' -f 1)
 sed -i "s/ARRAYREPLACEME/${njobs}/g" code/participant_job.sh
 # Copy the subject list into the code/ directory
-cp ${SUBJECT_LIST} code/
 
 chmod +x code/participant_job.sh
 
@@ -213,17 +213,17 @@ WD=${PWD}
 echo Using ${TMP} to download HCP-YA data
 
 # Configure datalad to run smoothly on compute nodes
-export DATALAD_LOCATIONS_CACHE=${WD}/.cache/datalad/
+export DATALAD_LOCATIONS_CACHE=${TMP}/.cache/datalad/
 export DATALAD_LOCATIONS_LOCKS=${DATALAD_LOCATIONS_CACHE}/locks
 export DATALAD_UI_PROGRESSBAR=none
 export DATALAD_UI_SUPPRESS__SIMILAR__RESULTS=False
 mkdir -p "${DATALAD_LOCATIONS_LOCKS}"
 
 # Create the input dataset into the working directory
-mkdir -p ${TMP}/HCP-YA/${subid}
+mkdir -p "${TMP}"/HCP-YA/${subid}
 
 # Download only the files we need for XCPD
-python code/download_hcp_bold.py ${subid} ${TMP}/HCP-YA/${subid}
+python code/download_hcp_bold.py ${subid} "${TMP}"/HCP-YA/${subid}
 
 # Run xcpd!
 mkdir -p ${PWD}/.git/tmp/wkdir
@@ -265,6 +265,11 @@ apptainer run --containall \
 
 # Clear some space before zipping
 rm -rf ${PWD}/.git/tmp/wkdir
+datalad drop \
+    -d "${TMP}"/HCP-YA/${subid}/MNINonLinear \
+    --reckless kill \
+    --what all \
+    -r
 
 # Zip the output directory
 rm -rfv xcpd-0-9-1/atlases
@@ -286,12 +291,11 @@ print(f'working on subject {subject}...')
 ds_url = f'https://hub.datalad.org/hcp-openaccess/{subject}-mninonlinear.git'
 
 patterns = [
-    "Results/*fMRI_*/SBRef_dc.nii.gz",
+    "Results/*fMRI_*/SBRef_dc.nii.gz*",
     "Results/*fMRI_*/*fMRI_*_*.nii.gz",
     "Results/*fMRI_*/*fMRI_*_*_Atlas_MSMAll.dtseries.nii",
-    "Results/*fMRI_*/Movement_Regressors.txt",
-    "Results/*fMRI_*/Movement_AbsoluteRMS.txt",
-    "Results/*fMRI_*/brainmask_fs.2.nii.gz",
+    "Results/*fMRI_*/Movement*.txt",
+    "Results/*fMRI_*/brainmask_fs.2.nii.gz*",
     "fsaverage_LR32k/*L.pial.32k_fs_LR.surf.gii",
     "fsaverage_LR32k/*R.pial.32k_fs_LR.surf.gii",
     "fsaverage_LR32k/*L.white.32k_fs_LR.surf.gii",
@@ -308,22 +312,28 @@ patterns = [
     "fsaverage_LR32k/*.R.MyelinMap.32k_fs_LR.func.gii",
     "fsaverage_LR32k/*.L.SmoothedMyelinMap.32k_fs_LR.func.gii",
     "fsaverage_LR32k/*.R.SmoothedMyelinMap.32k_fs_LR.func.gii",
-    "T1w.nii.gz",
-    "aparc+aseg.nii.gz",
-    "brainmask_fs.nii.gz",
-    "ribbon.nii.gz"
+    "T1w.nii.gz*",
+    "aparc+aseg.nii.gz*",
+    "brainmask_fs.nii.gz*",
+    "ribbon.nii.gz*",
 ]
 
 ds_path = Path(dl_dir) / 'MNINonLinear'
 ds = dl.clone(ds_url, path=ds_path)
+# The non-glob files
 paths_to_get = []
 for fpattern in patterns:
-    paths_to_get.extend(ds_path.glob(fpattern))
+    paths_to_get.extend(ds_path.rglob(fpattern))
 
-print(f"Attempting to get {len(paths_to_get)} files")
+# Remove the 7T files
+paths_to_get = [
+    pth for pth in paths_to_get if not
+    ("_7T_AP" in str(pth) or "_7T_PA" in str(pth) or "_7T_RET" in str(pth))]
+
 print("using configuration:")
 dl.configuration()
-print("Downloading")
+print(f"Attempting to get {len(paths_to_get)} files")
+print("Downloading...")
 try:
     ds.get(
         path=[pth.relative_to(ds.path) for pth in paths_to_get],
@@ -337,6 +347,7 @@ except Exception as exc:
         what="all",
         recursive=True,
         reckless="kill")
+print("Download succeeded")
 EOT
 
 # code to update the subject list
